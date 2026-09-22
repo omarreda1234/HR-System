@@ -1,0 +1,86 @@
+@model IEnumerable<HRSystem.Models.LeaveBalance>
+@{ ViewData["Title"] = "أرصدة الإجازات"; }
+
+<div class="animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-balance-scale text-primary me-2"></i> أرصدة الإجازات</h3>
+            <p class="text-muted small mb-0">عام @DateTime.Today.Year — @Model.Count() رصيد</p>
+        </div>
+        <div class="d-flex gap-2">
+            <form method="get" class="d-flex gap-2">
+                <select name="empNo" class="form-select form-select-sm rounded-pill border-0 shadow-sm"
+                        onchange="this.form.submit()">
+                    <option value="">-- كل الموظفين --</option>
+                    @foreach (var e in ViewBag.Employees as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)
+                    {
+                        <option value="@e.Value">@e.Text</option>
+                    }
+                </select>
+            </form>
+            <form asp-action="RefreshBalances" method="post">
+                <button type="submit" class="btn btn-outline-success rounded-pill px-4"
+                        onclick="return confirm('هل تريد تجديد أرصدة جميع الموظفين؟')">
+                    <i class="fas fa-sync me-2"></i> تجديد الأرصدة
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3"><i class="fas fa-check-circle me-2"></i>@TempData["Success"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+
+    <div class="card border-0 rounded-4 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead style="background:#f8f9fc;">
+                        <tr>
+                            <th class="p-3">الموظف</th>
+                            <th class="p-3">نوع الإجازة</th>
+                            <th class="p-3 text-center">الإجمالي</th>
+                            <th class="p-3 text-center">المستخدم</th>
+                            <th class="p-3 text-center">معلق</th>
+                            <th class="p-3 text-center">المتبقي</th>
+                            <th class="p-3">نسبة الاستخدام</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in Model)
+                        {
+                            double pct = b.TotalDays > 0 ? Math.Min(100, (double)b.UsedDays / (double)b.TotalDays * 100) : 0;
+                            string color = b.LeaveType?.ColorClass ?? "primary";
+                            <tr>
+                                <td class="p-3">
+                                    <div class="fw-bold text-dark small">@b.Employee?.SearchName</div>
+                                    <div class="text-muted" style="font-size:0.72rem;">@b.EmployeeNo</div>
+                                </td>
+                                <td class="p-3">
+                                    <span class="badge bg-@color bg-opacity-15 text-@color px-3 py-1 rounded-pill fw-bold">
+                                        @b.LeaveType?.NameAr
+                                    </span>
+                                </td>
+                                <td class="p-3 text-center fw-bold">@b.TotalDays</td>
+                                <td class="p-3 text-center text-danger fw-bold">@b.UsedDays</td>
+                                <td class="p-3 text-center text-warning fw-bold">@b.PendingDays</td>
+                                <td class="p-3 text-center">
+                                    <span class="fw-bold @(b.RemainingDays > 0 ? "text-success" : "text-danger")">
+                                        @b.RemainingDays
+                                    </span>
+                                </td>
+                                <td class="p-3" style="min-width:120px;">
+                                    <div class="progress" style="height:8px; border-radius:10px;">
+                                        <div class="progress-bar bg-@color" style="width:@pct.ToString("0")%;border-radius:10px;"></div>
+                                    </div>
+                                    <div class="text-muted mt-1" style="font-size:0.7rem;">@pct.ToString("0")%</div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

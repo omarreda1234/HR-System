@@ -1,0 +1,146 @@
+@model IEnumerable<HRSystem.Models.LeaveRequest>
+@{ ViewData["Title"] = "صندوق الموافقة — المدير"; }
+
+<style>
+    .request-card { border: none; border-radius: 15px; box-shadow: 0 2px 15px rgba(0,0,0,0.07); transition: transform 0.2s; }
+    .request-card:hover { transform: translateY(-3px); }
+    .emp-avatar { width:48px; height:48px; border-radius:12px; background:linear-gradient(135deg,#4e73df,#224abe); color:white; display:flex; align-items:center; justify-content:center; font-size:1.3rem; font-weight:800; }
+</style>
+
+<div class="animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-inbox text-warning me-2"></i> صندوق الموافقة — المدير</h3>
+            <p class="text-muted small mb-0">طلبات الإجازة التي تنتظر موافقتك</p>
+        </div>
+        <span class="badge bg-warning text-dark fs-6 px-3 py-2 rounded-pill">@Model.Count() طلب</span>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3"><i class="fas fa-check-circle me-2"></i>@TempData["Success"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-3"><i class="fas fa-times-circle me-2"></i>@TempData["Error"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="card border-0 rounded-4 shadow-sm text-center py-5">
+            <i class="fas fa-check-double fa-4x text-success mb-3 d-block"></i>
+            <h5 class="text-muted">لا توجد طلبات تنتظر موافقتك حالياً</h5>
+        </div>
+    }
+    else
+    {
+        <div class="row g-3">
+            @foreach (var r in Model)
+            {
+                string initial = r.Employee?.SearchName?.Length > 0 ? r.Employee.SearchName.Substring(0,1) : "?";
+                <div class="col-12 col-lg-6">
+                    <div class="request-card card p-4">
+                        <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="emp-avatar">@initial</div>
+                            <div>
+                                <div class="fw-bold text-dark">@r.Employee?.SearchName</div>
+                                <div class="text-muted small">@r.Employee?.DepartmentCode | كود: @r.EmployeeNo</div>
+                            </div>
+                            <div class="ms-auto">
+                                <span class="badge bg-primary bg-opacity-15 text-primary px-3 py-2 rounded-pill fw-bold">
+                                    @r.LeaveType?.NameAr
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row g-2 mb-3 small">
+                            <div class="col-4 text-center bg-light rounded-3 p-2">
+                                <div class="text-muted">من</div>
+                                <div class="fw-bold text-dark">@r.StartDate.ToString("dd/MM")</div>
+                            </div>
+                            <div class="col-4 text-center bg-light rounded-3 p-2">
+                                <div class="text-muted">إلى</div>
+                                <div class="fw-bold text-dark">@r.EndDate.ToString("dd/MM")</div>
+                            </div>
+                            <div class="col-4 text-center bg-warning bg-opacity-15 rounded-3 p-2">
+                                <div class="text-muted">مدة</div>
+                                <div class="fw-bold text-warning">@r.TotalDays يوم</div>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(r.Reason))
+                        {
+                            <div class="bg-light rounded-3 p-2 mb-3 small text-muted">
+                                <i class="fas fa-quote-right me-1"></i> @r.Reason
+                            </div>
+                        }
+                        <div class="text-muted small mb-3">
+                            <i class="fas fa-clock me-1"></i> تاريخ الطلب: @r.CreatedAt.ToString("yyyy/MM/dd HH:mm")
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-success rounded-pill flex-fill fw-bold"
+                                    onclick="doAction(@r.Id, true)"
+                                    data-bs-toggle="modal" data-bs-target="#actionModal">
+                                <i class="fas fa-check me-2"></i> موافقة
+                            </button>
+                            <button class="btn btn-outline-danger rounded-pill flex-fill fw-bold"
+                                    onclick="doAction(@r.Id, false)"
+                                    data-bs-toggle="modal" data-bs-target="#actionModal">
+                                <i class="fas fa-times me-2"></i> رفض
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@section Modals {
+    <div class="modal fade" id="actionModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:20px;">
+                <div class="modal-header" id="actionModalHeader" style="border-radius:20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold" id="actionModalTitle"></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="ManagerAction" method="post">
+                    <input type="hidden" name="requestId" id="actionRequestId" />
+                    <input type="hidden" name="approve" id="actionApprove" />
+                    <div class="modal-body p-4">
+                        <label class="form-label fw-bold">ملاحظاتك (اختياري)</label>
+                        <textarea name="notes" class="form-control rounded-3" rows="3"
+                                  placeholder="أضف ملاحظة للموظف..."></textarea>
+                    </div>
+                    <div class="modal-footer border-0 p-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                        <button type="submit" class="btn rounded-pill px-4 fw-bold" id="actionSubmitBtn"></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function doAction(id, approve) {
+            document.getElementById('actionRequestId').value = id;
+            document.getElementById('actionApprove').value = approve;
+            const hdr   = document.getElementById('actionModalHeader');
+            const title = document.getElementById('actionModalTitle');
+            const btn   = document.getElementById('actionSubmitBtn');
+            if (approve) {
+                hdr.style.background = 'linear-gradient(135deg,#1cc88a,#17a673)';
+                hdr.style.color = 'white';
+                title.innerHTML = '<i class="fas fa-check me-2"></i> تأكيد الموافقة';
+                btn.className = 'btn btn-success rounded-pill px-4 fw-bold';
+                btn.innerHTML = '<i class="fas fa-check me-2"></i> نعم، وافق';
+            } else {
+                hdr.style.background = 'linear-gradient(135deg,#e74a3b,#c0392b)';
+                hdr.style.color = 'white';
+                title.innerHTML = '<i class="fas fa-times me-2"></i> تأكيد الرفض';
+                btn.className = 'btn btn-danger rounded-pill px-4 fw-bold';
+                btn.innerHTML = '<i class="fas fa-times me-2"></i> نعم، ارفض';
+            }
+        }
+    </script>
+}

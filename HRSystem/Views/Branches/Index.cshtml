@@ -1,0 +1,300 @@
+@model IEnumerable<HRSystem.Models.Branch>
+
+@{
+    ViewData["Title"] = "إدارة الفروع";
+}
+
+<style>
+    .page-header {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 1rem;
+    }
+
+    .premium-card {
+        border: none;
+        border-radius: 15px;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15);
+        background: white;
+        overflow: hidden;
+    }
+
+    .table thead th {
+        background-color: #f8f9fc;
+        color: #4e73df;
+        font-weight: 700;
+        padding: 1rem;
+        border-top: none;
+    }
+
+    .table td {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+
+    .branch-badge {
+        width: 40px;
+        height: 40px;
+        background: #f0f2f5;
+        color: #4e73df;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+    }
+
+    .status-pill {
+        padding: 5px 12px;
+        border-radius: 50px;
+        font-size: 0.75rem;
+        font-weight: 700;
+    }
+
+    .status-active { background: #e1f7ed; color: #1cc88a; }
+    .status-inactive { background: #ffebeb; color: #e74a3b; }
+</style>
+
+<div class="animate__animated animate__fadeIn">
+    <div class="page-header">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-building text-primary me-2"></i> إدارة الفروع</h3>
+            <p class="text-muted small mb-0">إدارة مواقع العمل والفروع التابعة للمؤسسة</p>
+        </div>
+        <button class="btn btn-gradient" data-bs-toggle="modal" data-bs-target="#addBranchModal">
+            <i class="fas fa-plus me-1"></i> إضافة فرع جديد
+        </button>
+    </div>
+
+    <div class="card premium-card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="branchesTable">
+                    <thead>
+                        <tr>
+                            <th>الفرع</th>
+                            <th>كود الفرع</th>
+                            <th>المدينة</th>
+                            <th>الحالة</th>
+                            <th class="text-center">إجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="branch-badge">
+                                            <i class="fas fa-store"></i>
+                                        </div>
+                                        <div class="fw-bold text-dark">@item.BranchName</div>
+                                    </div>
+                                </td>
+                                <td><code class="fw-bold">@item.BranchCode</code></td>
+                                <td>@item.City</td>
+                                <td>
+                                    <span class="status-pill @(item.IsActive == true ? "status-active" : "status-inactive")">
+                                        @(item.IsActive == true ? "نشط" : "متوقف")
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3 btn-edit-branch" 
+                                                data-id="@item.BranchId" 
+                                                data-name="@item.BranchName" 
+                                                data-code="@item.BranchCode" 
+                                                data-city="@item.City" 
+                                                data-vpnip="@item.VpnIp" 
+                                                data-isactive="@(item.IsActive == true ? "true" : "false")">
+                                            <i class="fas fa-edit me-1"></i> تعديل
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-delete-branch" 
+                                                data-id="@item.BranchId" 
+                                                data-name="@item.BranchName">
+                                            <i class="fas fa-trash me-1"></i> حذف
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Add Branch -->
+<div class="modal fade" id="addBranchModal" tabindex="-1" aria-labelledby="addBranchModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-15 border-0 shadow-lg" style="border-radius: 15px; overflow: hidden;">
+            <div class="modal-header bg-gradient-primary text-white" style="background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);">
+                <h5 class="modal-title font-weight-bold" id="addBranchModalLabel"><i class="fas fa-store-alt mr-2"></i> إضافة فرع جديد</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="CreateBranch" method="post">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">اسم الفرع</label>
+                        <input type="text" class="form-control" name="BranchName" placeholder="مثال: فرع أجا الرئيسي" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">كود الفرع</label>
+                        <input type="text" class="form-control" name="BranchCode" placeholder="مثال: AGA" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">IP الـ VPN للفرع</label>
+                        <input type="text" class="form-control" name="VpnIp" placeholder="مثال: 172.16.35.100">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">المدينة</label>
+                        <input type="text" class="form-control" name="City" placeholder="مثال: المنصورة">
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4" style="background: linear-gradient(135deg, #4e73df 0%, #224abe 100%); border: none;">حفظ الفرع</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Edit Branch -->
+<div class="modal fade" id="editBranchModal" tabindex="-1" aria-labelledby="editBranchModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content rounded-15 border-0 shadow-lg" style="border-radius: 15px; overflow: hidden;">
+            <div class="modal-header bg-gradient-info text-white" style="background: linear-gradient(135deg, #36b9cc 0%, #258391 100%);">
+                <h5 class="modal-title font-weight-bold" id="editBranchModalLabel"><i class="fas fa-edit mr-2"></i> تعديل بيانات الفرع</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form asp-action="EditBranch" method="post">
+                <input type="hidden" name="BranchId" id="editBranchId">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">اسم الفرع</label>
+                        <input type="text" class="form-control" name="BranchName" id="editBranchName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">كود الفرع</label>
+                        <input type="text" class="form-control" name="BranchCode" id="editBranchCode" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">IP الـ VPN للفرع</label>
+                        <input type="text" class="form-control" name="VpnIp" id="editBranchVpnIp">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">المدينة</label>
+                        <input type="text" class="form-control" name="City" id="editBranchCity">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold">الحالة</label>
+                        <select class="form-select form-control" name="IsActive" id="editBranchIsActive">
+                            <option value="true">نشط</option>
+                            <option value="false">متوقف</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0">
+                    <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-info text-white rounded-pill px-4" style="background: linear-gradient(135deg, #36b9cc 0%, #258391 100%); border: none;">تحديث البيانات</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@@11"></script>
+    <script>
+        $(document).ready(function() {
+            const table = $('#branchesTable').DataTable({
+                "language": { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/ar.json" },
+                "responsive": true
+            });
+
+            // Edit Branch Modal triggers
+            $(document).on('click', '.btn-edit-branch', function() {
+                const id = $(this).data('id');
+                const name = $(this).data('name');
+                const code = $(this).data('code');
+                const city = $(this).data('city');
+                const vpnip = $(this).data('vpnip');
+                const isactive = $(this).data('isactive').toString();
+
+                $('#editBranchId').val(id);
+                $('#editBranchName').val(name);
+                $('#editBranchCode').val(code);
+                $('#editBranchCity').val(city);
+                $('#editBranchVpnIp').val(vpnip);
+                $('#editBranchIsActive').val(isactive);
+
+                const modal = new bootstrap.Modal(document.getElementById('editBranchModal'));
+                modal.show();
+            });
+
+            // Delete Branch trigger
+            $(document).on('click', '.btn-delete-branch', function() {
+                const id = $(this).data('id');
+                const name = $(this).data('name');
+                const row = $(this).closest('tr');
+
+                Swal.fire({
+                    title: 'هل أنت متأكد؟',
+                    text: `سيتم حذف الفرع (${name}) بشكل نهائي!`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#e74a3b',
+                    cancelButtonColor: '#858796',
+                    confirmButtonText: 'نعم، احذف',
+                    cancelButtonText: 'إلغاء'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        $.post('/Branches/DeleteBranch', { id: id }, function(data) {
+                            if (data.success) {
+                                Swal.fire('تم الحذف!', data.message, 'success');
+                                table.row(row).remove().draw(false);
+                            } else {
+                                Swal.fire('فشل الحذف!', data.message, 'error');
+                            }
+                        });
+                    }
+                });
+            });
+
+            // Display TempData notifications if present
+            @if (TempData["Success"] != null)
+            {
+                <text>
+                Swal.fire({
+                    icon: 'success',
+                    title: 'نجاح!',
+                    text: '@TempData["Success"]',
+                    timer: 3000,
+                    showConfirmButton: false
+                });
+                </text>
+            }
+            @if (TempData["Error"] != null)
+            {
+                <text>
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ!',
+                    text: '@TempData["Error"]'
+                });
+                </text>
+            }
+        });
+    </script>
+}

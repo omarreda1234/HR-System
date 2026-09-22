@@ -1,0 +1,65 @@
+html {
+  font-size: 14px;
+}
+
+@media (min-width: 768px) {
+  html {
+    font-size: 16px;
+  }
+}
+
+body {
+  font-family: 'Cairo', sans-serif !important;
+  margin-bottom: 60px;
+  background-color: #f8f9fc;
+}
+
+/* Modal & Backdrop Fixes */
+.modal-backdrop {
+  z-index: 1050 !important;
+  opacity: 0.5 !important;
+}
+.modal {
+  z-index: 1060 !important;
+}
+.modal-content {
+  pointer-events: auto !important;
+}
+body.modal-open {
+  overflow: hidden !important;
+  padding-right: 0 !important;
+}
+
+.swal2-container {
+  z-index: 3000 !important;
+}
+
+/* Premium Shadows & Borders */
+.shadow-premium {
+  box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.15) !important;
+}
+
+.rounded-15 { border-radius: 15px !important; }
+.rounded-20 { border-radius: 20px !important; }
+
+/* Custom Scrollbar for Modals */
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+.modal-dialog-scrollable .modal-body::-webkit-scrollbar-thumb {
+  background: #e74a3b;
+  border-radius: 10px;
+}
+
+/* Button Refinement */
+.btn-gradient {
+  background: linear-gradient(135deg, #4e73df 0%, #224abe 100%);
+  color: white;
+  border: none;
+  transition: all 0.3s;
+}
+.btn-gradient:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(78, 115, 223, 0.4);
+  color: white;
+}

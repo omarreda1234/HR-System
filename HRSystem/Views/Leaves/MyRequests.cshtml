@@ -1,0 +1,204 @@
+@model IEnumerable<HRSystem.Models.LeaveRequest>
+@{
+    ViewData["Title"] = "طلبات إجازاتي";
+    var balances = ViewBag.Balances as List<HRSystem.Models.LeaveBalance>;
+    var types    = ViewBag.LeaveTypes as List<HRSystem.Models.LeaveType>;
+}
+
+<style>
+    .balance-card { border: none; border-radius: 15px; transition: transform 0.2s; overflow: hidden; }
+    .balance-card:hover { transform: translateY(-4px); }
+    .balance-ring { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; font-weight: 800; margin: 0 auto; }
+    .status-badge { padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; }
+    .status-0 { background: #fff3cd; color: #856404; }
+    .status-1 { background: #cfe2ff; color: #084298; }
+    .status-2 { background: #d1e7dd; color: #0f5132; }
+    .status-3 { background: #f8d7da; color: #842029; }
+    .status-4 { background: #e2e3e5; color: #41464b; }
+    .page-card { border: none; border-radius: 15px; box-shadow: 0 0.15rem 1.75rem rgba(58,59,69,.1); }
+</style>
+
+<div class="animate__animated animate__fadeIn">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-calendar-check text-primary me-2"></i> طلبات إجازاتي</h3>
+            <p class="text-muted small mb-0">سجل طلبات الإجازة ومتابعة حالتها</p>
+        </div>
+        <button class="btn btn-gradient rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#newRequestModal">
+            <i class="fas fa-plus me-2"></i> طلب إجازة جديد
+        </button>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm" role="alert">
+            <i class="fas fa-check-circle me-2"></i> @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 shadow-sm" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i> @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    }
+
+    <!-- Leave Balances -->
+    @if (balances != null && balances.Any())
+    {
+        <div class="row g-3 mb-4">
+            @foreach (var b in balances)
+            {
+                string color = b.LeaveType?.ColorClass ?? "primary";
+                <div class="col-6 col-md-3">
+                    <div class="balance-card card text-center p-3">
+                        <div class="balance-ring bg-@color bg-opacity-15 text-@color mb-2">
+                            @((int)b.RemainingDays)
+                        </div>
+                        <div class="fw-bold text-dark small">@b.LeaveType?.NameAr</div>
+                        <div class="text-muted" style="font-size:0.72rem;">
+                            مستخدم: @b.UsedDays | إجمالي: @b.TotalDays
+                        </div>
+                        <div class="mt-1">
+                            <div class="progress" style="height:4px; border-radius:10px;">
+                                @{ double pct = b.TotalDays > 0 ? Math.Min(100, (double)b.UsedDays / (double)b.TotalDays * 100) : 0; }
+                                <div class="progress-bar bg-@color" style="width:@pct.ToString("0")%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Requests Table -->
+    <div class="card page-card">
+        <div class="card-body p-0">
+            @if (!Model.Any())
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-calendar-times fa-4x text-muted mb-3 d-block"></i>
+                    <p class="text-muted">لا توجد طلبات إجازة حتى الآن</p>
+                    <button class="btn btn-gradient rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#newRequestModal">
+                        <i class="fas fa-plus me-2"></i> ابدأ بطلب إجازتك الأولى
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead style="background:#f8f9fc;">
+                            <tr>
+                                <th class="p-3">نوع الإجازة</th>
+                                <th class="p-3">من</th>
+                                <th class="p-3">إلى</th>
+                                <th class="p-3">أيام</th>
+                                <th class="p-3">الحالة</th>
+                                <th class="p-3">ملاحظات</th>
+                                <th class="p-3 text-center">إجراء</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in Model)
+                            {
+                                <tr>
+                                    <td class="p-3">
+                                        <span class="badge bg-@(r.LeaveType?.ColorClass ?? "primary") bg-opacity-15 text-@(r.LeaveType?.ColorClass ?? "primary") px-3 py-2 rounded-pill fw-bold">
+                                            @r.LeaveType?.NameAr
+                                        </span>
+                                    </td>
+                                    <td class="p-3 small">@r.StartDate.ToString("yyyy/MM/dd")</td>
+                                    <td class="p-3 small">@r.EndDate.ToString("yyyy/MM/dd")</td>
+                                    <td class="p-3"><span class="fw-bold text-dark">@r.TotalDays</span></td>
+                                    <td class="p-3">
+                                        <span class="status-badge status-@((int)r.Status)">
+                                            @(r.Status switch {
+                                                HRSystem.Models.LeaveStatus.Pending         => "⏳ قيد الانتظار",
+                                                HRSystem.Models.LeaveStatus.ManagerApproved => "✅ موافقة المدير",
+                                                HRSystem.Models.LeaveStatus.HRApproved      => "🎉 معتمدة",
+                                                HRSystem.Models.LeaveStatus.Rejected        => "❌ مرفوضة",
+                                                HRSystem.Models.LeaveStatus.Cancelled       => "🚫 ملغاة",
+                                                _ => r.Status.ToString()
+                                            })
+                                        </span>
+                                    </td>
+                                    <td class="p-3 small text-muted">
+                                        @if (!string.IsNullOrEmpty(r.ManagerNotes)) { <div><i class="fas fa-user-tie me-1"></i>@r.ManagerNotes</div> }
+                                        @if (!string.IsNullOrEmpty(r.HRNotes))      { <div><i class="fas fa-id-badge me-1"></i>@r.HRNotes</div> }
+                                    </td>
+                                    <td class="p-3 text-center">
+                                        @if (r.Status == HRSystem.Models.LeaveStatus.Pending || r.Status == HRSystem.Models.LeaveStatus.ManagerApproved)
+                                        {
+                                            <form asp-action="Cancel" method="post" class="d-inline"
+                                                  onsubmit="return confirm('هل تريد إلغاء هذا الطلب؟')">
+                                                <input type="hidden" name="id" value="@r.Id" />
+                                                <button class="btn btn-sm btn-outline-danger rounded-pill px-3">
+                                                    <i class="fas fa-times me-1"></i> إلغاء
+                                                </button>
+                                            </form>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Modals {
+    <div class="modal fade" id="newRequestModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:20px;">
+                <div class="modal-header text-white" style="background:linear-gradient(135deg,#4e73df,#224abe);border-radius:20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-calendar-plus me-2"></i> طلب إجازة جديد</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="Submit" method="post">
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">نوع الإجازة</label>
+                            <select name="leaveTypeId" class="form-select rounded-3" required>
+                                <option value="">-- اختر نوع الإجازة --</option>
+                                @if (types != null)
+                                {
+                                    @foreach (var t in types)
+                                    {
+                                        <option value="@t.Id">@t.NameAr (@t.DefaultDaysPerYear يوم/سنة)</option>
+                                    }
+                                }
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold">من تاريخ</label>
+                                <input type="date" name="startDate" class="form-control rounded-3" required
+                                       min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold">إلى تاريخ</label>
+                                <input type="date" name="endDate" class="form-control rounded-3" required
+                                       min="@DateTime.Today.ToString("yyyy-MM-dd")" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">السبب</label>
+                            <textarea name="reason" class="form-control rounded-3" rows="3" placeholder="اكتب سبب طلب الإجازة..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 p-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                        <button type="submit" class="btn btn-gradient rounded-pill px-4">
+                            <i class="fas fa-paper-plane me-2"></i> إرسال الطلب
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}

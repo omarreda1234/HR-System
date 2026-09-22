@@ -1,0 +1,70 @@
+@model IEnumerable<HRSystem.Models.SalaryStructure>
+@{ ViewData["Title"] = "هيكلة الرواتب"; }
+
+<div class="animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-sliders-h text-primary me-2"></i> هيكلة الرواتب</h3>
+            <p class="text-muted small mb-0">إدارة الرواتب الأساسية والبدلات والاستقطاعات لكل موظف</p>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm"><i class="fas fa-check-circle me-2"></i>@TempData["Success"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+
+    <div class="card border-0 rounded-4 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead style="background:#f8f9fc;">
+                        <tr>
+                            <th class="p-3">الموظف</th>
+                            <th class="p-3 text-end">الأساسي</th>
+                            <th class="p-3 text-end">البدلات</th>
+                            <th class="p-3 text-end">الإجمالي</th>
+                            <th class="p-3 text-center">الضريبة</th>
+                            <th class="p-3 text-center">التأمينات</th>
+                            <th class="p-3 text-center">الحالة</th>
+                            <th class="p-3 text-center">تعديل</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var s in Model)
+                        {
+                            decimal allowances = s.HousingAllowance + s.TransportAllowance + s.MedicalAllowance + s.OtherAllowances;
+                            <tr>
+                                <td class="p-3">
+                                    <div class="fw-bold text-dark small">@s.Employee?.SearchName</div>
+                                    <div class="text-muted" style="font-size:0.72rem;">@s.EmployeeNo | @s.Employee?.JobGrade</div>
+                                </td>
+                                <td class="p-3 text-end fw-bold">@s.BaseSalary.ToString("N0")</td>
+                                <td class="p-3 text-end text-info">@allowances.ToString("N0")</td>
+                                <td class="p-3 text-end fw-bold text-success">@s.GrossSalary.ToString("N0")</td>
+                                <td class="p-3 text-center small">@((s.TaxRate * 100).ToString("0.##"))%</td>
+                                <td class="p-3 text-center small">@((s.SocialInsuranceRate * 100).ToString("0.##"))%</td>
+                                <td class="p-3 text-center">
+                                    @if (s.IsActive)
+                                    {
+                                        <span class="badge bg-success bg-opacity-15 text-success rounded-pill px-3 py-1">نشطة</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary bg-opacity-15 text-secondary rounded-pill px-3 py-1">غير نشطة</span>
+                                    }
+                                </td>
+                                <td class="p-3 text-center">
+                                    <a asp-action="EditSalary" asp-route-empNo="@s.EmployeeNo"
+                                       class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                                        <i class="fas fa-edit me-1"></i> تعديل
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

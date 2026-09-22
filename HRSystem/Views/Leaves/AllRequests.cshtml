@@ -1,0 +1,76 @@
+@model IEnumerable<HRSystem.Models.LeaveRequest>
+@{ ViewData["Title"] = "جميع طلبات الإجازة"; }
+
+<div class="animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-list-alt text-info me-2"></i> جميع طلبات الإجازة</h3>
+            <p class="text-muted small mb-0">إجمالي @Model.Count() طلب لعام @ViewBag.Year</p>
+        </div>
+        <form method="get" class="d-flex gap-2 align-items-center">
+            <select name="year" class="form-select form-select-sm rounded-pill px-3 border-0 shadow-sm" style="width:100px;" onchange="this.form.submit()">
+                @for (int y = DateTime.Today.Year; y >= DateTime.Today.Year - 3; y--)
+                {
+                    <option value="@y" selected="@(y == (int)ViewBag.Year)">@y</option>
+                }
+            </select>
+            <select name="status" class="form-select form-select-sm rounded-pill px-3 border-0 shadow-sm" style="width:140px;" onchange="this.form.submit()">
+                <option value="">كل الحالات</option>
+                @foreach (var s in ViewBag.StatusList as IEnumerable<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)
+                {
+                    <option value="@s.Value">@s.Text</option>
+                }
+            </select>
+        </form>
+    </div>
+
+    <div class="card border-0 rounded-4 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="allRequestsTable">
+                    <thead style="background:#f8f9fc;">
+                        <tr>
+                            <th class="p-3">#</th>
+                            <th class="p-3">الموظف</th>
+                            <th class="p-3">نوع الإجازة</th>
+                            <th class="p-3">من</th>
+                            <th class="p-3">إلى</th>
+                            <th class="p-3">أيام</th>
+                            <th class="p-3">الحالة</th>
+                            <th class="p-3">تاريخ الطلب</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var r in Model)
+                        {
+                            string[] colors = { "warning", "info", "success", "danger", "secondary" };
+                            string[] labels = { "⏳ انتظار", "✅ مدير", "🎉 معتمدة", "❌ مرفوضة", "🚫 ملغاة" };
+                            int si = (int)r.Status;
+                            <tr>
+                                <td class="p-3 text-muted small">@r.Id</td>
+                                <td class="p-3">
+                                    <div class="fw-bold text-dark small">@r.Employee?.SearchName</div>
+                                    <div class="text-muted" style="font-size:0.72rem;">@r.EmployeeNo</div>
+                                </td>
+                                <td class="p-3">
+                                    <span class="badge bg-primary bg-opacity-15 text-primary px-2 py-1 rounded-pill small">
+                                        @r.LeaveType?.NameAr
+                                    </span>
+                                </td>
+                                <td class="p-3 small">@r.StartDate.ToString("yyyy/MM/dd")</td>
+                                <td class="p-3 small">@r.EndDate.ToString("yyyy/MM/dd")</td>
+                                <td class="p-3"><span class="fw-bold">@r.TotalDays</span></td>
+                                <td class="p-3">
+                                    <span class="badge bg-@colors[si] bg-opacity-20 text-@colors[si] px-2 py-1 rounded-pill small fw-bold">
+                                        @labels[si]
+                                    </span>
+                                </td>
+                                <td class="p-3 small text-muted">@r.CreatedAt.ToString("yyyy/MM/dd")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

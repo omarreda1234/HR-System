@@ -1,0 +1,240 @@
+@model IEnumerable<HRSystem.Models.UserSessionLog>
+
+@{
+    ViewData["Title"] = "تتبع الأجهزة والجلسات";
+}
+
+<style>
+    .header-premium {
+        background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+        color: white;
+        padding: 2.5rem 2rem;
+        border-radius: 20px;
+        box-shadow: 0 10px 30px rgba(59, 130, 246, 0.15);
+        margin-bottom: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .header-premium::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -30%;
+        width: 300px;
+        height: 300px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 50%;
+        transform: rotate(45deg);
+    }
+    
+    .stats-card-session {
+        background: white;
+        border-radius: 15px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.02);
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+    }
+    .stats-card-session:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+    }
+
+    .table-premium {
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 12px 35px rgba(0,0,0,0.03);
+        overflow: hidden;
+        border: 1px solid #f1f5f9;
+    }
+    .table thead th {
+        background: #f8fafc;
+        color: #64748b;
+        font-weight: 700;
+        font-size: 0.8rem;
+        letter-spacing: 0.5px;
+        padding: 1.25rem 1rem;
+        border-bottom: 2px solid #edf2f7;
+        text-align: right;
+    }
+    .table tbody td {
+        padding: 1.1rem 1rem;
+        vertical-align: middle;
+        color: #334155;
+        font-weight: 500;
+        border-bottom: 1px solid #f1f5f9;
+        text-align: right;
+    }
+    .table tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .badge-ip {
+        background: #eff6ff;
+        color: #2563eb;
+        font-weight: 700;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        border: 1px solid #dbeafe;
+    }
+    .badge-pc {
+        background: #f0fdf4;
+        color: #16a34a;
+        font-weight: 700;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        border: 1px solid #dcfce7;
+    }
+    .badge-device {
+        background: #faf5ff;
+        color: #7e22ce;
+        font-weight: 600;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.78rem;
+        border: 1px solid #f3e8ff;
+    }
+
+    .avatar-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #475569;
+        margin-left: 10px;
+        border: 2px solid white;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+</style>
+
+<div class="container-fluid py-4" dir="rtl">
+    <!-- Header Banner -->
+    <div class="header-premium animate__animated animate__fadeInDown">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1 class="fw-bold mb-2"><i class="fas fa-user-shield me-2"></i> تتبع الأجهزة والجلسات النشطة</h1>
+                <p class="mb-0 text-white-50">لوحة تحكم سرية للـ Admin لمراقبة الأجهزة وعناوين الـ IP واسم الكمبيوتر لكل من يقوم بفتح السيستم.</p>
+            </div>
+            <div>
+                <a href="/" class="btn btn-outline-light border-2 rounded-pill px-4 fw-bold">
+                    <i class="fas fa-chevron-right ms-2"></i> العودة للرئيسية
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Statistics Cards -->
+    <div class="row g-4 mb-4 animate__animated animate__fadeInUp">
+        <div class="col-md-4">
+            <div class="stats-card-session d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="text-muted d-block mb-1 fw-bold" style="font-size: 0.85rem;">إجمالي العمليات المراقبة</span>
+                    <h3 class="fw-bold mb-0 text-dark">@Model.Count()</h3>
+                </div>
+                <div class="bg-primary text-white rounded-3 p-3 shadow-sm" style="opacity: 0.9;">
+                    <i class="fas fa-history fa-2x"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card-session d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="text-muted d-block mb-1 fw-bold" style="font-size: 0.85rem;">عناوين الـ IP الفريدة</span>
+                    <h3 class="fw-bold mb-0 text-primary">@Model.Select(l => l.IpAddress).Distinct().Count()</h3>
+                </div>
+                <div class="bg-info text-white rounded-3 p-3 shadow-sm" style="opacity: 0.9;">
+                    <i class="fas fa-network-wired fa-2x"></i>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stats-card-session d-flex align-items-center justify-content-between">
+                <div>
+                    <span class="text-muted d-block mb-1 fw-bold" style="font-size: 0.85rem;">أنواع الأجهزة النشطة</span>
+                    <h3 class="fw-bold mb-0 text-success">@Model.Select(l => l.DeviceDetails).Distinct().Count()</h3>
+                </div>
+                <div class="bg-success text-white rounded-3 p-3 shadow-sm" style="opacity: 0.9;">
+                    <i class="fas fa-laptop-code fa-2x"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sessions Audit Table Card -->
+    <div class="card border-0 shadow-sm rounded-4 animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
+        <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <h4 class="fw-bold mb-0 text-dark"><i class="fas fa-list-ul me-2 text-primary"></i> سجل النشاط الأخير (آخر 500 عملية)</h4>
+            <div>
+                <input type="text" id="logSearch" class="form-control rounded-pill border-1 px-4" placeholder="بحث بالبريد، الـ IP، أو اسم الجهاز..." style="width: 300px; font-size: 0.9rem;">
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0" id="logsTable">
+                    <thead>
+                        <tr>
+                            <th>المستخدم</th>
+                            <th>عنوان الـ IP</th>
+                            <th>اسم الكمبيوتر (Network Host)</th>
+                            <th>تفاصيل الجهاز والمتصفح</th>
+                            <th>الصفحة / الإجراء</th>
+                            <th>توقيت الدخول</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in Model)
+                        {
+                            var initial = !string.IsNullOrEmpty(log.Email) ? log.Email.Substring(0, 1).ToUpper() : "U";
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-circle">@initial</div>
+                                        <div>
+                                            <span class="fw-bold text-dark d-block">@log.Email</span>
+                                            <span class="text-muted" style="font-size: 0.75rem;">نشط الآن</span>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge-ip"><i class="fas fa-wifi me-1"></i> @log.IpAddress</span>
+                                </td>
+                                <td>
+                                    <span class="badge-pc"><i class="fas fa-desktop me-1"></i> @log.ComputerName</span>
+                                </td>
+                                <td>
+                                    <span class="badge-device"><i class="fas fa-info-circle me-1"></i> @log.DeviceDetails</span>
+                                </td>
+                                <td>
+                                    <code class="text-danger fw-bold" style="font-size: 0.82rem; direction: ltr; display: inline-block;">@log.ActionAccessed</code>
+                                </td>
+                                <td>
+                                    <span class="text-muted fw-bold" style="font-size: 0.85rem;"><i class="far fa-clock me-1"></i> @log.AccessTime.ToString("yyyy-MM-dd hh:mm tt")</span>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function () {
+            // Live Interactive Search Filter
+            $("#logSearch").on("keyup", function () {
+                var value = $(this).val().toLowerCase();
+                $("#logsTable tbody tr").filter(function () {
+                    $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
+                });
+            });
+        });
+    </script>
+}

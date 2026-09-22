@@ -1,0 +1,1036 @@
+@model IEnumerable<HRSystem.Models.Branch>
+@{
+    ViewData["Title"] = "لوحة تحكم وإدارة أجهزة DVR Dahua";
+}
+
+<div class="container-fluid mt-4">
+    <!-- Header with Stats -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-15 bg-gradient-dark text-white p-4" style="background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h2 class="font-weight-bold mb-1"><i class="fas fa-server mr-2 text-info"></i> لوحة إدارة أجهزة DVR Dahua بالفروع</h2>
+                        <p class="mb-0 text-white-50">إدارة ومراقبة أجهزة تسجيل الفيديو DVR عبر فروع المؤسسة الـ 46 باستخدام Dahua NetSDK</p>
+                    </div>
+                    <div class="text-right">
+                        <span class="badge bg-info p-2 rounded-pill"><i class="fas fa-network-wired"></i> شبكة VPN نشطة</span>
+                    </div>
+                </div>
+                <hr style="border-top: 1px solid rgba(255,255,255,0.1)">
+                <div class="row text-center mt-3">
+                    <div class="col-md-3 border-left border-secondary">
+                        <h3 class="font-weight-bold mb-0 text-info" id="statTotalBranches">@Model.Count()</h3>
+                        <small class="text-white-50">إجمالي الفروع</small>
+                    </div>
+                    <div class="col-md-3 border-left border-secondary">
+                        <h3 class="font-weight-bold mb-0 text-warning" id="statTotalDvr">@Model.Sum(b => b.DvrDevices.Count)</h3>
+                        <small class="text-white-50">إجمالي أجهزة DVR</small>
+                    </div>
+                    <div class="col-md-3 border-left border-secondary">
+                        <h3 class="font-weight-bold mb-0 text-success" id="statConnectedDvr">@Model.Sum(b => b.DvrDevices.Count(d => d.Status == "متصل"))</h3>
+                        <small class="text-white-50">الأجهزة المتصلة</small>
+                    </div>
+                    <div class="col-md-3">
+                        <h3 class="font-weight-bold mb-0 text-danger" id="statOfflineDvr">@Model.Sum(b => b.DvrDevices.Count(d => d.Status == "فشل الاتصال"))</h3>
+                        <small class="text-white-50">أجهزة غير متصلة</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Branches Table & Grid -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card border-0 shadow-sm rounded-15">
+                <div class="card-header bg-white py-3 border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 font-weight-bold text-primary"><i class="fas fa-store-alt mr-2"></i> قائمة الفروع وحالة أجهزة الـ DVR</h5>
+                    <div class="d-flex align-items-center gap-2">
+                        <div class="search-box">
+                            <input type="text" id="branchSearch" class="form-control form-control-sm rounded-pill px-3" placeholder="بحث باسم الفرع..." style="width: 200px;">
+                        </div>
+                        <button class="btn btn-sm btn-success rounded-pill px-3" id="btn-add-branch-modal" title="إضافة فرع جديد">
+                            <i class="fas fa-plus"></i> إضافة فرع
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="branchesTable">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 25%;">الفرع</th>
+                                    <th style="width: 15%;">IP الـ VPN للفرع</th>
+                                    <th style="width: 45%;">أجهزة الـ DVR المضافة</th>
+                                    <th style="width: 15%;" class="text-center">إجراءات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var branch in Model)
+                                {
+                                    <tr class="branch-row" id="branch-row-@branch.BranchId" data-name="@branch.BranchName.ToLower()">
+                                        <td>
+                                            <div class="d-flex align-items-center w-100">
+                                                <div class="bg-light-primary text-primary rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px; background-color: rgba(78, 115, 223, 0.1); flex-shrink: 0;">
+                                                    <i class="fas fa-store"></i>
+                                                </div>
+                                                <div class="d-flex justify-content-between align-items-center w-100 pr-2">
+                                                    <div>
+                                                        <h6 class="mb-0 font-weight-bold">@branch.BranchName</h6>
+                                                        <small class="text-muted">ID: @branch.BranchId | Code: @branch.BranchCode</small>
+                                                    </div>
+                                                    <button class="btn btn-sm btn-link text-danger p-0 ml-2 btn-delete-branch" data-id="@branch.BranchId" data-name="@branch.BranchName" title="حذف الفرع">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="align-middle text-center">
+                                            <div class="d-flex align-items-center gap-1 justify-content-center">
+                                                <span class="font-monospace text-dark fw-bold" id="branch-vpn-ip-@branch.BranchId">@(string.IsNullOrEmpty(branch.VpnIp) ? "لا يوجد IP" : branch.VpnIp)</span>
+                                                <button class="btn btn-xs btn-link text-primary p-0 btn-edit-vpn-ip" data-branch-id="@branch.BranchId" data-vpn-ip="@branch.VpnIp" title="تعديل الـ VPN IP">
+                                                    <i class="fas fa-edit" style="font-size: 12px;"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                        <td>
+                                            <div class="d-flex flex-wrap gap-2 dvr-container" data-branch-id="@branch.BranchId">
+                                                @if (branch.DvrDevices != null && branch.DvrDevices.Any())
+                                                {
+                                                    @foreach (var dvr in branch.DvrDevices)
+                                                    {
+                                                        string statusClass = "bg-secondary";
+                                                        string statusIcon = "fa-question-circle";
+                                                        if (dvr.Status == "متصل")
+                                                        {
+                                                            statusClass = "bg-success";
+                                                            statusIcon = "fa-check-circle";
+                                                        }
+                                                        else if (dvr.Status == "فشل الاتصال")
+                                                        {
+                                                            statusClass = "bg-danger";
+                                                            statusIcon = "fa-times-circle";
+                                                        }
+
+                                                        <div class="card border shadow-sm p-2 dvr-card" id="dvr-card-@dvr.Id" style="width: 260px; border-radius: 10px; transition: all 0.2s;">
+                                                            <div class="d-flex justify-content-between align-items-start mb-1">
+                                                                <span class="fw-bold text-dark text-truncate" style="max-width: 150px;">@dvr.DvrName</span>
+                                                                <span class="badge @statusClass d-flex align-items-center gap-1 status-badge" id="badge-@dvr.Id">
+                                                                    <i class="fas @statusIcon"></i> <span class="status-text">@dvr.Status</span>
+                                                                </span>
+                                                            </div>
+                                                            <div class="small text-muted mb-2">
+                                                                <div><i class="fas fa-desktop text-muted mr-1"></i> @dvr.LocalIp:@dvr.VpnPort</div>
+                                                                <div><i class="fas fa-clock text-muted mr-1"></i> فحص: <span class="sync-time">@(dvr.LastSyncTime?.ToString("MM-dd HH:mm") ?? "أبداً")</span></div>
+                                                            </div>
+                                                            <div class="d-flex justify-content-between align-items-center gap-1">
+                                                                <button class="btn btn-sm btn-outline-primary py-0 px-2 btn-test-connection" data-id="@dvr.Id" title="فحص الاتصال">
+                                                                    <i class="fas fa-plug"></i> فحص
+                                                                    <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                                                </button>
+                                                                <button class="btn btn-sm btn-outline-info py-0 px-2 btn-dvr-time @(dvr.Status == "متصل" ? "" : "disabled")" data-id="@dvr.Id" id="btn-time-@dvr.Id" title="مزامنة وقت الجهاز">
+                                                                    <i class="fas fa-clock"></i> وقت
+                                                                </button>
+                                                                <button class="btn btn-sm btn-outline-warning py-0 px-1 btn-dvr-commands" data-id="@dvr.Id" data-name="@dvr.DvrName" data-ip="@dvr.LocalIp" data-port="@dvr.VpnPort" data-branch-vpn-ip="@branch.VpnIp" title="أوامر الربط (Windows)">
+                                                                    <i class="fas fa-terminal"></i> ربط
+                                                                </button>
+                                                                <button class="btn btn-sm btn-outline-danger py-0 px-1 btn-delete-dvr" data-id="@dvr.Id" data-name="@dvr.DvrName" title="حذف">
+                                                                    <i class="fas fa-trash-alt"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted small align-self-center no-dvr-placeholder"><i class="fas fa-exclamation-circle text-warning mr-1"></i> لا توجد أجهزة DVR مضافة للفرع</span>
+                                                }
+                                            </div>
+                                        </td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-success rounded-pill px-3 btn-add-dvr-modal" data-branch-id="@branch.BranchId" data-branch-name="@branch.BranchName">
+                                                <i class="fas fa-plus-circle"></i> إضافة DVR
+                                            </button>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Modals {
+    <!-- Modal: Add DVR -->
+    <div class="modal fade" id="addDvrModal" tabindex="-1" aria-labelledby="addDvrModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-15 border-0 shadow-lg">
+                <div class="modal-header bg-gradient-primary text-white" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border-top-left-radius: 15px; border-top-right-radius: 15px;">
+                    <h5 class="modal-title font-weight-bold" id="addDvrModalLabel"><i class="fas fa-video mr-2"></i> إضافة جهاز DVR لفرع <span id="modalBranchName"></span></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="addDvrForm">
+                        <input type="hidden" id="addBranchId" name="branchId">
+                        
+                        <div class="mb-3">
+                            <label for="dvrName" class="form-label font-weight-bold">اسم الـ DVR / موقعه</label>
+                            <input type="text" class="form-control" id="dvrName" name="dvrName" placeholder="مثال: DVR الكاميرات الرئيسي" required>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-7 mb-3">
+                                <label for="localIp" class="form-label font-weight-bold">عنوان الـ IP الداخلي</label>
+                                <input type="text" class="form-control" id="localIp" name="localIp" value="192.168.1.108" required>
+                            </div>
+                            <div class="col-md-5 mb-3">
+                                <label for="vpnPort" class="form-label font-weight-bold">منفذ التحويل (Port)</label>
+                                <input type="number" class="form-control" id="vpnPort" name="vpnPort" value="3777" required>
+                                <small class="text-muted">المنفذ المحول على الـ VPN</small>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="username" class="form-label font-weight-bold">اسم المستخدم</label>
+                                <input type="text" class="form-control" id="username" name="username" value="admin" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="password" class="form-label font-weight-bold">كلمة المرور</label>
+                                <input type="password" class="form-control" id="password" name="password" required>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg rounded-pill" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); border: none;">
+                                <i class="fas fa-save mr-2"></i> حفظ الجهاز
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Modal: Add Branch -->
+    <div class="modal fade" id="addBranchModal" tabindex="-1" aria-labelledby="addBranchModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content rounded-15 border-0 shadow-lg">
+                <div class="modal-header bg-gradient-success text-white" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border-top-left-radius: 15px; border-top-right-radius: 15px;">
+                    <h5 class="modal-title font-weight-bold" id="addBranchModalLabel"><i class="fas fa-store-alt mr-2"></i> إضافة فرع جديد</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <form id="addBranchForm">
+                        <div class="mb-3">
+                            <label for="branchNameInput" class="form-label font-weight-bold">اسم الفرع</label>
+                            <input type="text" class="form-control" id="branchNameInput" name="branchName" placeholder="مثال: فرع أجا الرئيسي" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="branchCodeInput" class="form-label font-weight-bold">كود الفرع</label>
+                            <input type="text" class="form-control" id="branchCodeInput" name="branchCode" placeholder="مثال: AGA" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="vpnIpInput" class="form-label font-weight-bold">IP الـ VPN للفرع</label>
+                            <input type="text" class="form-control" id="vpnIpInput" name="vpnIp" placeholder="مثال: 172.16.35.100">
+                        </div>
+                        <div class="mb-3">
+                            <label for="cityInput" class="form-label font-weight-bold">المدينة</label>
+                            <input type="text" class="form-control" id="cityInput" name="city" placeholder="مثال: المنصورة">
+                        </div>
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-success btn-lg rounded-pill" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); border: none;">
+                                <i class="fas fa-save mr-2"></i> حفظ الفرع
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal: DVR Connection Commands -->
+    <div class="modal fade" id="dvrCommandsModal" tabindex="-1" aria-labelledby="dvrCommandsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content rounded-15 border-0 shadow-lg">
+                <div class="modal-header bg-gradient-dark text-white" style="background: linear-gradient(135deg, #3a3b45 0%, #224abe 100%); border-top-left-radius: 15px; border-top-right-radius: 15px;">
+                    <h5 class="modal-title font-weight-bold" id="dvrCommandsModalLabel"><i class="fas fa-terminal mr-2"></i> أوامر ربط الـ DVR بالويندوز (جهاز <span id="cmdDvrName"></span>)</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4" style="direction: rtl;">
+                    <p class="text-muted">لتشغيل الـ DVR عبر جهاز وسيط بالفرع، يرجى تشغيل الأوامر التالية كـ <strong>مسؤول (Administrator)</strong> في موجه الأوامر (CMD) على جهاز الكمبيوتر المتصل بالواي فاي بالفرع:</p>
+                    
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="font-weight-bold text-primary">1. أمر عمل كوبري المنفذ (Port Proxy):</span>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="copyText('cmdPortProxy')"><i class="fas fa-copy"></i> نسخ</button>
+                        </div>
+                        <pre class="bg-light p-3 border rounded font-monospace text-dark text-left" id="cmdPortProxy" style="direction: ltr; text-align: left; white-space: pre-wrap; margin: 0;"></pre>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="font-weight-bold text-primary">2. أمر السماح بالمنفذ في جدار الحماية (Firewall):</span>
+                            <button class="btn btn-sm btn-outline-secondary" onclick="copyText('cmdFirewall')"><i class="fas fa-copy"></i> نسخ</button>
+                        </div>
+                        <pre class="bg-light p-3 border rounded font-monospace text-dark text-left" id="cmdFirewall" style="direction: ltr; text-align: left; white-space: pre-wrap; margin: 0;"></pre>
+                    </div>
+
+                    <div class="alert alert-info border-0 rounded-10 d-flex align-items-center gap-2 mb-4">
+                        <i class="fas fa-info-circle text-info" style="font-size: 20px;"></i>
+                        <div>
+                            تأكد من تشغيل موجه الأوامر (CMD) بصلاحية <strong>Run as Administrator</strong> لتجنب أخطاء الصلاحيات.
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between flex-wrap gap-2">
+                        <button type="button" class="btn btn-secondary px-4 rounded-pill" data-bs-dismiss="modal">إغلاق</button>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-success px-4 rounded-pill" id="btnRunOnServer">
+                                <i class="fas fa-play mr-1"></i> تشغيل على السيرفر
+                                <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            </button>
+                            <button type="button" class="btn btn-primary px-4 rounded-pill" id="btnDownloadBat">
+                                <i class="fas fa-download mr-1"></i> تحميل ملف (.bat)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@@11"></script>
+    <script>
+        // Define SweetAlert2 Toast Mixin
+        const Toast = Swal.mixin({
+            toast: true,
+            position: 'top-end',
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            didOpen: (toast) => {
+                toast.addEventListener('mouseenter', Swal.stopTimer)
+                toast.addEventListener('mouseleave', Swal.resumeTimer)
+            }
+        });
+
+        // Search Filter
+        document.getElementById('branchSearch').addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            const rows = document.querySelectorAll('.branch-row');
+            rows.forEach(row => {
+                const name = row.getAttribute('data-name');
+                row.classList.toggle('d-none', !name.includes(query));
+            });
+        });
+
+        // Trigger Add Branch Modal
+        const btnAddBranch = document.getElementById('btn-add-branch-modal');
+        if (btnAddBranch) {
+            btnAddBranch.addEventListener('click', function() {
+                document.getElementById('branchNameInput').value = '';
+                document.getElementById('branchCodeInput').value = '';
+                document.getElementById('vpnIpInput').value = '';
+                document.getElementById('cityInput').value = '';
+
+                const modal = new bootstrap.Modal(document.getElementById('addBranchModal'));
+                modal.show();
+            });
+        }
+
+        // Submit Add Branch Form
+        const addBranchForm = document.getElementById('addBranchForm');
+        if (addBranchForm) {
+            addBranchForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(this);
+
+                fetch('/Dahua/AddBranch', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        const modalEl = document.getElementById('addBranchModal');
+                        const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                        if (modalInstance) {
+                            modalInstance.hide();
+                        }
+
+                        Toast.fire({
+                            icon: 'success',
+                            title: data.message
+                        });
+
+                        const tbody = document.querySelector('#branchesTable tbody');
+                        if (tbody) {
+                            const rowHtml = `
+                                <tr class="branch-row" id="branch-row-${data.branch.branchId}" data-name="${data.branch.branchName.toLowerCase()}">
+                                    <td>
+                                        <div class="d-flex align-items-center w-100">
+                                            <div class="bg-light-primary text-primary rounded-circle d-flex align-items-center justify-content-center mr-3" style="width: 40px; height: 40px; background-color: rgba(78, 115, 223, 0.1); flex-shrink: 0;">
+                                                <i class="fas fa-store"></i>
+                                            </div>
+                                            <div class="d-flex justify-content-between align-items-center w-100 pr-2">
+                                                <div>
+                                                    <h6 class="mb-0 font-weight-bold">${data.branch.branchName}</h6>
+                                                    <small class="text-muted">ID: ${data.branch.branchId} | Code: ${data.branch.branchCode}</small>
+                                                </div>
+                                                <button class="btn btn-sm btn-link text-danger p-0 ml-2 btn-delete-branch" data-id="${data.branch.branchId}" data-name="${data.branch.branchName}" title="حذف الفرع">
+                                                    <i class="fas fa-trash-alt"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="font-monospace text-dark fw-bold" id="branch-vpn-ip-${data.branch.branchId}">${data.branch.vpnIp}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-2 dvr-container" data-branch-id="${data.branch.branchId}">
+                                            <span class="text-muted small align-self-center no-dvr-placeholder"><i class="fas fa-exclamation-circle text-warning mr-1"></i> لا توجد أجهزة DVR مضافة للفرع</span>
+                                        </div>
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-outline-success rounded-pill px-3 btn-add-dvr-modal" data-branch-id="${data.branch.branchId}" data-branch-name="${data.branch.branchName}">
+                                            <i class="fas fa-plus-circle"></i> إضافة DVR
+                                        </button>
+                                    </td>
+                                </tr>
+                            `;
+                            tbody.insertAdjacentHTML('beforeend', rowHtml);
+                        }
+
+                        const branchStat = document.getElementById('statTotalBranches');
+                        if (branchStat) {
+                            branchStat.innerText = parseInt(branchStat.innerText) + 1;
+                        }
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'خطأ!',
+                            text: data.message
+                        });
+                    }
+                })
+                .catch(() => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ فني!',
+                        text: 'حدث خطأ غير متوقع أثناء إرسال البيانات.'
+                    });
+                });
+            });
+        }
+
+        // Submit Add DVR Form
+        document.getElementById('addDvrForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const branchId = document.getElementById('addBranchId').value;
+
+            fetch('/Dahua/AddDvr', {
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide Modal
+                    const modalEl = document.getElementById('addDvrModal');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) {
+                        modalInstance.hide();
+                    }
+
+                    Toast.fire({
+                        icon: 'success',
+                        title: data.message
+                    });
+
+                    // Add new card dynamically to the correct branch container
+                    const container = document.querySelector(`.dvr-container[data-branch-id="${branchId}"]`);
+                    if (container) {
+                        // Remove placeholder if it exists
+                        const placeholder = container.querySelector('.no-dvr-placeholder');
+                        if (placeholder) {
+                            placeholder.remove();
+                        }
+
+                        const vpnIpElement = document.getElementById('branch-vpn-ip-' + branchId);
+                        let vpnIp = vpnIpElement ? vpnIpElement.innerText.trim() : '';
+                        if (vpnIp === 'لا يوجد IP') {
+                            vpnIp = '';
+                        }
+
+                        const dvrHtml = `
+                            <div class="card border shadow-sm p-2 dvr-card" id="dvr-card-${data.dvr.id}" style="width: 260px; border-radius: 10px; transition: all 0.2s; opacity: 0; transform: scale(0.8);">
+                                <div class="d-flex justify-content-between align-items-start mb-1">
+                                    <span class="fw-bold text-dark text-truncate" style="max-width: 150px;">${data.dvr.dvrName}</span>
+                                    <span class="badge bg-secondary d-flex align-items-center gap-1 status-badge" id="badge-${data.dvr.id}">
+                                        <i class="fas fa-question-circle"></i> <span class="status-text">${data.dvr.status}</span>
+                                    </span>
+                                </div>
+                                <div class="small text-muted mb-2">
+                                    <div><i class="fas fa-desktop text-muted mr-1"></i> ${data.dvr.localIp}:${data.dvr.vpnPort}</div>
+                                    <div><i class="fas fa-clock text-muted mr-1"></i> فحص: <span class="sync-time">${data.dvr.lastSync}</span></div>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center gap-1">
+                                    <button class="btn btn-sm btn-outline-primary py-0 px-2 btn-test-connection" data-id="${data.dvr.id}" title="فحص الاتصال">
+                                        <i class="fas fa-plug"></i> فحص
+                                        <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-info py-0 px-2 btn-dvr-time disabled" data-id="${data.dvr.id}" id="btn-time-${data.dvr.id}" title="مزامنة وقت الجهاز">
+                                        <i class="fas fa-clock"></i> وقت
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-warning py-0 px-1 btn-dvr-commands" data-id="${data.dvr.id}" data-name="${data.dvr.dvrName}" data-ip="${data.dvr.localIp}" data-port="${data.dvr.vpnPort}" data-branch-vpn-ip="${vpnIp}" title="أوامر الربط (Windows)">
+                                        <i class="fas fa-terminal"></i> ربط
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-danger py-0 px-1 btn-delete-dvr" data-id="${data.dvr.id}" data-name="${data.dvr.dvrName}" title="حذف">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+
+                        container.insertAdjacentHTML('beforeend', dvrHtml);
+
+                        // Animate card entrance
+                        setTimeout(() => {
+                            const newCard = document.getElementById(`dvr-card-${data.dvr.id}`);
+                            if (newCard) {
+                                newCard.style.opacity = '1';
+                                newCard.style.transform = 'scale(1)';
+                            }
+                        }, 50);
+                    }
+
+                    // Update total stat
+                    const statTotal = document.getElementById('statTotalDvr');
+                    if (statTotal) {
+                        statTotal.innerText = parseInt(statTotal.innerText) + 1;
+                    }
+                    updateStats();
+
+                } else {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ!',
+                        text: data.message
+                    });
+                }
+            })
+            .catch(() => {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ فني!',
+                    text: 'حدث خطأ غير متوقع أثناء إرسال البيانات.'
+                });
+            });
+        });
+
+        // Event Delegation for Dynamic Buttons
+        document.addEventListener('click', function(e) {
+            const btnTest = e.target.closest('.btn-test-connection');
+            const btnDelete = e.target.closest('.btn-delete-dvr');
+            const btnTime = e.target.closest('.btn-dvr-time');
+            const btnDeleteBranch = e.target.closest('.btn-delete-branch');
+            const btnAddDvrModal = e.target.closest('.btn-add-dvr-modal');
+            const btnEditVpnIp = e.target.closest('.btn-edit-vpn-ip');
+            const btnDvrCommands = e.target.closest('.btn-dvr-commands');
+
+            if (btnEditVpnIp) {
+                e.preventDefault();
+                const branchId = btnEditVpnIp.getAttribute('data-branch-id');
+                const vpnIp = btnEditVpnIp.getAttribute('data-vpn-ip');
+
+                Swal.fire({
+                    title: 'تعديل آي بي VPN الفرع',
+                    input: 'text',
+                    inputValue: vpnIp || '',
+                    inputPlaceholder: 'مثال: 172.16.35.100',
+                    showCancelButton: true,
+                    confirmButtonText: 'حفظ',
+                    cancelButtonText: 'إلغاء',
+                    confirmButtonColor: '#1cc88a',
+                    cancelButtonColor: '#858796',
+                    inputValidator: (value) => {
+                        if (value && !/^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(value)) {
+                            return 'يرجى إدخال IP صحيح أو تركه فارغاً!';
+                        }
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const formData = new FormData();
+                        formData.append('branchId', branchId);
+                        formData.append('vpnIp', result.value || '');
+
+                        fetch('/Dahua/UpdateBranchVpnIp', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                Toast.fire({
+                                    icon: 'success',
+                                    title: data.message
+                                });
+                                const span = document.getElementById(`branch-vpn-ip-${branchId}`);
+                                if (span) {
+                                    span.innerText = result.value || 'لا يوجد IP';
+                                }
+                                btnEditVpnIp.setAttribute('data-vpn-ip', result.value || '');
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'فشل التعديل',
+                                    text: data.message
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (btnDvrCommands) {
+                e.preventDefault();
+                const id = btnDvrCommands.getAttribute('data-id');
+                const name = btnDvrCommands.getAttribute('data-name');
+                const ip = btnDvrCommands.getAttribute('data-ip');
+                const port = btnDvrCommands.getAttribute('data-port');
+                const branchVpnIp = btnDvrCommands.getAttribute('data-branch-vpn-ip') || '0.0.0.0';
+
+                document.getElementById('cmdDvrName').innerText = name;
+
+                const portProxyCmd = `netsh interface portproxy add v4tov4 listenaddress=${branchVpnIp} listenport=${port} connectaddress=${ip} connectport=${port}`;
+                const firewallCmd = `netsh advfirewall firewall add rule name="Dahua DVR Proxy ${port}" dir=in action=allow protocol=TCP localport=${port}`;
+
+                document.getElementById('cmdPortProxy').innerText = portProxyCmd;
+                document.getElementById('cmdFirewall').innerText = firewallCmd;
+
+                const btnDownload = document.getElementById('btnDownloadBat');
+                btnDownload.onclick = function() {
+                    const batContent = `@@echo off\r\n` +
+                        `echo ===================================================\r\n` +
+                        `echo Setting up port proxy for Dahua DVR ${name}...\r\n` +
+                        `echo ===================================================\r\n` +
+                        `${portProxyCmd}\r\n` +
+                        `echo ---------------------------------------------------\r\n` +
+                        `echo Adding firewall inbound rule...\r\n` +
+                        `echo ---------------------------------------------------\r\n` +
+                        `${firewallCmd}\r\n` +
+                        `echo ===================================================\r\n` +
+                        `echo Setup Complete! Please run this as Administrator.\r\n` +
+                        `echo ===================================================\r\n` +
+                        `pause`;
+
+                    const blob = new Blob([batContent], { type: 'text/plain;charset=utf-8' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `setup_dvr_proxy_${port}.bat`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                };
+
+                const btnRun = document.getElementById('btnRunOnServer');
+                btnRun.onclick = function() {
+                    const spinner = btnRun.querySelector('.spinner-border');
+                    btnRun.disabled = true;
+                    if (spinner) spinner.classList.remove('d-none');
+
+                    const formData = new FormData();
+                    formData.append('id', id);
+
+                    fetch('/Dahua/RunProxyCommandsOnServer', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(res => res.json())
+                    .then(result => {
+                        if (result.success) {
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'نجاح!',
+                                text: result.message
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'تنبيه/خطأ',
+                                text: result.message
+                            });
+                        }
+                    })
+                    .catch(() => {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'خطأ فني',
+                            text: 'تعذر الاتصال بالسيرفر لتنفيذ الأوامر.'
+                        });
+                    })
+                    .finally(() => {
+                        btnRun.disabled = false;
+                        if (spinner) spinner.classList.add('d-none');
+                    });
+                };
+
+                const modal = new bootstrap.Modal(document.getElementById('dvrCommandsModal'));
+                modal.show();
+            }
+
+            if (btnAddDvrModal) {
+                e.preventDefault();
+                const branchId = btnAddDvrModal.getAttribute('data-branch-id');
+                const branchName = btnAddDvrModal.getAttribute('data-branch-name');
+
+                document.getElementById('addBranchId').value = branchId;
+                document.getElementById('modalBranchName').innerText = branchName;
+
+                // Reset form values to default
+                document.getElementById('dvrName').value = '';
+                document.getElementById('localIp').value = '192.168.1.108';
+                document.getElementById('vpnPort').value = '37777'; // default is 37777
+                document.getElementById('username').value = 'admin';
+                document.getElementById('password').value = '';
+
+                // Show Modal
+                const modalEl = document.getElementById('addDvrModal');
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+            }
+
+            if (btnDeleteBranch) {
+                e.preventDefault();
+                const id = btnDeleteBranch.getAttribute('data-id');
+                const name = btnDeleteBranch.getAttribute('data-name');
+
+                Swal.fire({
+                    title: 'هل أنت متأكد؟',
+                    text: `سيتم حذف الفرع (${name}) بشكل نهائي!`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#e74a3b',
+                    cancelButtonColor: '#858796',
+                    confirmButtonText: 'نعم، احذف',
+                    cancelButtonText: 'إلغاء'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const formData = new FormData();
+                        formData.append('id', id);
+
+                        fetch('/Dahua/DeleteBranch', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                Toast.fire({
+                                    icon: 'success',
+                                    title: data.message
+                                });
+                                
+                                const row = document.getElementById(`branch-row-${id}`);
+                                if (row) {
+                                    row.style.opacity = '0';
+                                    setTimeout(() => {
+                                        row.remove();
+                                        const branchStat = document.getElementById('statTotalBranches');
+                                        if (branchStat) {
+                                            branchStat.innerText = Math.max(0, parseInt(branchStat.innerText) - 1);
+                                        }
+                                    }, 300);
+                                }
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'فشل الحذف!',
+                                    text: data.message
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (btnTest) {
+                e.preventDefault();
+                const id = btnTest.getAttribute('data-id');
+                const icon = btnTest.querySelector('i');
+                const spinner = btnTest.querySelector('.spinner-border');
+
+                // Disable and show loading
+                btnTest.disabled = true;
+                if (icon) icon.classList.add('d-none');
+                if (spinner) spinner.classList.remove('d-none');
+
+                const formData = new FormData();
+                formData.append('id', id);
+
+                fetch('/Dahua/TestDvrConnection', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(res => res.json())
+                .then(result => {
+                    const card = document.getElementById(`dvr-card-${id}`);
+                    if (!card) return;
+                    const badge = card.querySelector('.status-badge');
+                    const badgeText = badge.querySelector('.status-text');
+                    const badgeIcon = badge.querySelector('i');
+                    const syncTimeSpan = card.querySelector('.sync-time');
+                    const timeBtn = document.getElementById(`btn-time-${id}`);
+
+                    if (result.success) {
+                        badge.className = 'badge bg-success d-flex align-items-center gap-1 status-badge';
+                        badgeText.innerText = 'متصل';
+                        badgeIcon.className = 'fas fa-check-circle';
+                        syncTimeSpan.innerText = result.data.lastSync.substring(5, 16);
+                        
+                        if (timeBtn) timeBtn.classList.remove('disabled');
+
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'اتصال ناجح!',
+                            html: `
+                                <div class="text-right small mt-2" style="direction: rtl;">
+                                    <p><strong>الرقم التسلسلي (S/N):</strong> ${result.data.serialNumber}</p>
+                                    <p><strong>عدد القنوات:</strong> ${result.data.channelCount}</p>
+                                    <p><strong>عدد الهاردات:</strong> ${result.data.diskCount}</p>
+                                </div>
+                            `,
+                            confirmButtonText: 'موافق'
+                        });
+                    } else {
+                        badge.className = 'badge bg-danger d-flex align-items-center gap-1 status-badge';
+                        badgeText.innerText = 'فشل الاتصال';
+                        badgeIcon.className = 'fas fa-times-circle';
+                        
+                        if (timeBtn) timeBtn.classList.add('disabled');
+
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'فشل الاتصال بالـ DVR!',
+                            text: result.message,
+                            confirmButtonText: 'حسناً'
+                        });
+                    }
+                    updateStats();
+                })
+                .catch(() => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ فني!',
+                        text: 'حدث خطأ فني أثناء محاولة الاتصال بالخادم.'
+                    });
+                })
+                .finally(() => {
+                    btnTest.disabled = false;
+                    if (icon) icon.classList.remove('d-none');
+                    if (spinner) spinner.classList.add('d-none');
+                });
+            }
+
+            if (btnDelete) {
+                e.preventDefault();
+                const id = btnDelete.getAttribute('data-id');
+                const name = btnDelete.getAttribute('data-name');
+
+                Swal.fire({
+                    title: 'هل أنت متأكد؟',
+                    text: `سيتم حذف جهاز الـ DVR (${name}) بشكل نهائي!`,
+                    icon: 'warning',
+                    showCancelButton: true,
+                    confirmButtonColor: '#e74a3b',
+                    cancelButtonColor: '#858796',
+                    confirmButtonText: 'نعم، احذف',
+                    cancelButtonText: 'إلغاء'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const formData = new FormData();
+                        formData.append('id', id);
+
+                        fetch('/Dahua/DeleteDvr', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.success) {
+                                Toast.fire({
+                                    icon: 'success',
+                                    title: data.message
+                                });
+                                
+                                const card = document.getElementById(`dvr-card-${id}`);
+                                if (card) {
+                                    const container = card.parentElement;
+                                    card.style.opacity = '0';
+                                    card.style.transform = 'scale(0.8)';
+                                    setTimeout(() => {
+                                        card.remove();
+                                        
+                                        if (container && container.querySelectorAll('.dvr-card').length === 0) {
+                                            container.innerHTML = `<span class="text-muted small align-self-center no-dvr-placeholder"><i class="fas fa-exclamation-circle text-warning mr-1"></i> لا توجد أجهزة DVR مضافة للفرع</span>`;
+                                        }
+                                        
+                                        const statTotal = document.getElementById('statTotalDvr');
+                                        if (statTotal) {
+                                            statTotal.innerText = Math.max(0, parseInt(statTotal.innerText) - 1);
+                                        }
+                                        updateStats();
+                                    }, 300);
+                                }
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'فشل الحذف!',
+                                    text: data.message
+                                });
+                            }
+                        });
+                    }
+                });
+            }
+
+            if (btnTime) {
+                e.preventDefault();
+                if (btnTime.classList.contains('disabled')) return;
+                const id = btnTime.getAttribute('data-id');
+
+                Swal.fire({
+                    title: 'جاري قراءة وقت الـ DVR...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+
+                fetch(`/Dahua/GetDvrTime?id=${id}`)
+                .then(res => res.json())
+                .then(result => {
+                    if (result.success) {
+                        const serverDate = new Date(result.serverTime.replace(' ', 'T'));
+                        const deviceDate = new Date(result.deviceTime.replace(' ', 'T'));
+                        const diffSeconds = Math.abs(serverDate - deviceDate) / 1000;
+                        
+                        let diffMessage = '';
+                        let diffColor = 'text-success';
+                        
+                        if (diffSeconds > 10) {
+                            diffColor = 'text-danger fw-bold';
+                            diffMessage = `⚠️ فارق الوقت: ${Math.round(diffSeconds)} ثانية! الوقت غير متطابق.`;
+                        } else {
+                            diffMessage = `✅ الوقت مضبوط ومتطابق مع السيرفر.`;
+                        }
+
+                        Swal.fire({
+                            title: '<i class="fas fa-clock text-info"></i> وقت جهاز الـ DVR',
+                            html: `
+                                <div class="text-right p-3 border rounded bg-light" style="font-size: 15px; direction: rtl;">
+                                    <div class="mb-2"><strong>وقت السيرفر الحالي:</strong> <span class="font-monospace">${result.serverTimeFormatted}</span></div>
+                                    <div class="mb-2"><strong>وقت جهاز الـ DVR:</strong> <span class="font-monospace text-primary">${result.deviceTimeFormatted}</span></div>
+                                    <div class="mt-3 p-2 rounded bg-white border ${diffColor}">${diffMessage}</div>
+                                </div>
+                            `,
+                            showCancelButton: true,
+                            confirmButtonText: '<i class="fas fa-sync"></i> مزامنة الوقت الآن',
+                            cancelButtonText: 'إلغاء',
+                            confirmButtonColor: '#17a2b8',
+                            cancelButtonColor: '#858796',
+                        }).then((clickResult) => {
+                            if (clickResult.isConfirmed) {
+                                Swal.fire({
+                                    title: 'جاري ضبط وقت الـ DVR...',
+                                    allowOutsideClick: false,
+                                    didOpen: () => {
+                                        Swal.showLoading();
+                                    }
+                                });
+
+                                const formData = new FormData();
+                                formData.append('id', id);
+
+                                fetch('/Dahua/SyncDvrTime', {
+                                    method: 'POST',
+                                    body: formData
+                                })
+                                .then(res => res.json())
+                                .then(syncRes => {
+                                    if (syncRes.success) {
+                                        Toast.fire({
+                                            icon: 'success',
+                                            title: syncRes.message
+                                        });
+                                    } else {
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'فشل مزامنة الوقت',
+                                            text: syncRes.message
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'فشل قراءة الوقت',
+                            text: result.message
+                        });
+                    }
+                })
+                .catch(() => {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ فني',
+                        text: 'تعذر الاتصال بالسيرفر لقراءة الوقت.'
+                    });
+                });
+            }
+        });
+
+        function updateStats() {
+            const badges = document.querySelectorAll('.status-badge');
+            let connected = 0;
+            let offline = 0;
+            badges.forEach(badge => {
+                if (badge.classList.contains('bg-success')) connected++;
+                if (badge.classList.contains('bg-danger')) offline++;
+            });
+            document.getElementById('statConnectedDvr').innerText = connected;
+            document.getElementById('statOfflineDvr').innerText = offline;
+        }
+
+        function copyText(elementId) {
+            const text = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000,
+                    icon: 'success',
+                    title: 'تم النسخ إلى الحافظة'
+                });
+            }).catch(() => {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    showConfirmButton: false,
+                    timer: 2000,
+                    icon: 'error',
+                    title: 'فشل النسخ'
+                });
+            });
+        }
+    </script>
+}

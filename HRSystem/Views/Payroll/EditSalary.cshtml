@@ -1,0 +1,161 @@
+@model HRSystem.Models.SalaryStructure
+@{
+    ViewData["Title"] = "تعديل هيكلة الراتب";
+    var emp = ViewBag.Employee as HRSystem.Models.Employee;
+}
+
+<div class="animate__animated animate__fadeIn">
+    <div class="mb-4">
+        <a asp-action="SalaryStructures" class="btn btn-light rounded-pill px-3 mb-3">
+            <i class="fas fa-arrow-right me-2"></i> رجوع
+        </a>
+        <h3 class="fw-bold text-dark mb-0"><i class="fas fa-sliders-h text-primary me-2"></i> هيكلة راتب</h3>
+        @if (emp != null)
+        {
+            <p class="text-muted small">@emp.SearchName — @emp.No | @emp.DepartmentCode | @emp.JobGrade</p>
+        }
+    </div>
+
+    <div class="card border-0 rounded-4 shadow-sm">
+        <div class="card-body p-4">
+            <form asp-action="EditSalary" method="post">
+                <input type="hidden" asp-for="EmployeeNo" />
+                <input type="hidden" asp-for="IsActive" />
+                <input type="hidden" asp-for="EffectiveFrom" />
+
+                <h6 class="fw-bold text-primary mb-3 border-bottom pb-2">
+                    <i class="fas fa-money-bill me-2"></i> الراتب الأساسي والبدلات
+                </h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">الراتب الأساسي</label>
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-light">ج.م</span>
+                            <input asp-for="BaseSalary" type="number" step="0.01" min="0"
+                                   class="form-control border-0 bg-light rounded-end" required />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">بدل السكن</label>
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-light">ج.م</span>
+                            <input asp-for="HousingAllowance" type="number" step="0.01" min="0"
+                                   class="form-control border-0 bg-light rounded-end" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">بدل النقل</label>
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-light">ج.م</span>
+                            <input asp-for="TransportAllowance" type="number" step="0.01" min="0"
+                                   class="form-control border-0 bg-light rounded-end" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">بدل طبي</label>
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-light">ج.م</span>
+                            <input asp-for="MedicalAllowance" type="number" step="0.01" min="0"
+                                   class="form-control border-0 bg-light rounded-end" />
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">بدلات أخرى</label>
+                        <div class="input-group">
+                            <span class="input-group-text border-0 bg-light">ج.م</span>
+                            <input asp-for="OtherAllowances" type="number" step="0.01" min="0"
+                                   class="form-control border-0 bg-light rounded-end" />
+                        </div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold text-danger mb-3 border-bottom pb-2">
+                    <i class="fas fa-minus-circle me-2"></i> الاستقطاعات
+                </h6>
+                <div class="row g-3 mb-4">
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">نسبة الضريبة</label>
+                        <div class="input-group">
+                            <input asp-for="TaxRate" type="number" step="0.0001" min="0" max="1"
+                                   class="form-control border-0 bg-light rounded-start" placeholder="مثال: 0.10" />
+                            <span class="input-group-text border-0 bg-light">%</span>
+                        </div>
+                        <div class="form-text">أدخل كنسبة عشرية: 0.10 = 10%</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">نسبة التأمينات</label>
+                        <div class="input-group">
+                            <input asp-for="SocialInsuranceRate" type="number" step="0.0001" min="0" max="1"
+                                   class="form-control border-0 bg-light rounded-start" placeholder="مثال: 0.11" />
+                            <span class="input-group-text border-0 bg-light">%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div class="bg-light rounded-4 p-4 mb-4" id="previewCard">
+                    <h6 class="fw-bold text-dark mb-3"><i class="fas fa-calculator me-2 text-primary"></i> معاينة الراتب المحسوب</h6>
+                    <div class="row g-2 text-center">
+                        <div class="col-3">
+                            <div class="text-muted small">الإجمالي</div>
+                            <div class="fw-bold text-dark fs-5" id="previewGross">—</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted small">الضريبة</div>
+                            <div class="fw-bold text-danger" id="previewTax">—</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted small">التأمينات</div>
+                            <div class="fw-bold text-danger" id="previewSI">—</div>
+                        </div>
+                        <div class="col-3">
+                            <div class="text-muted small">الصافي</div>
+                            <div class="fw-bold text-success fs-5" id="previewNet">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">ملاحظات</label>
+                    <textarea asp-for="Notes" class="form-control border-0 bg-light rounded-3" rows="2"></textarea>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <a asp-action="SalaryStructures" class="btn btn-light rounded-pill px-4">إلغاء</a>
+                    <button type="submit" class="btn btn-gradient rounded-pill px-4">
+                        <i class="fas fa-save me-2"></i> حفظ هيكلة الراتب
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function getVal(id) { return parseFloat(document.getElementById(id)?.value || document.querySelector('[name="'+id+'"]')?.value) || 0; }
+
+        function updatePreview() {
+            const base  = getVal('BaseSalary');
+            const house = getVal('HousingAllowance');
+            const trans = getVal('TransportAllowance');
+            const med   = getVal('MedicalAllowance');
+            const other = getVal('OtherAllowances');
+            const taxR  = getVal('TaxRate');
+            const siR   = getVal('SocialInsuranceRate');
+
+            const gross = base + house + trans + med + other;
+            const tax   = gross * taxR;
+            const si    = base  * siR;
+            const net   = gross - tax - si;
+
+            document.getElementById('previewGross').textContent = gross.toLocaleString('ar-EG', {minimumFractionDigits:0, maximumFractionDigits:0});
+            document.getElementById('previewTax').textContent   = '(' + tax.toLocaleString('ar-EG', {maximumFractionDigits:0}) + ')';
+            document.getElementById('previewSI').textContent    = '(' + si.toLocaleString('ar-EG', {maximumFractionDigits:0}) + ')';
+            document.getElementById('previewNet').textContent   = net.toLocaleString('ar-EG', {minimumFractionDigits:0, maximumFractionDigits:0});
+        }
+
+        document.querySelectorAll('input[type=number]').forEach(inp => inp.addEventListener('input', updatePreview));
+        updatePreview();
+    </script>
+}

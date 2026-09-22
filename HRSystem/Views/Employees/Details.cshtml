@@ -1,0 +1,248 @@
+@model HRSystem.Models.Employee
+
+@{
+    ViewData["Title"] = "كارت الموظف - " + Model.SearchName;
+}
+
+<style>
+    :root {
+        --card-bg: #ffffff;
+        --accent-color: #2563eb;
+        --text-main: #1e293b;
+        --text-muted: #64748b;
+        --border-color: #f1f5f9;
+    }
+
+    body { background-color: #f8fafc; }
+
+    .employee-card {
+        background: var(--card-bg);
+        border-radius: 24px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.03);
+        overflow: hidden;
+        border: 1px solid var(--border-color);
+        position: relative;
+    }
+
+    .card-banner {
+        height: 160px;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        position: relative;
+    }
+
+    .profile-section {
+        margin-top: -80px;
+        text-align: center;
+        padding: 0 2rem;
+        position: relative;
+        z-index: 2;
+    }
+
+    .profile-avatar {
+        width: 160px;
+        height: 160px;
+        border-radius: 50%;
+        border: 6px solid white;
+        background: #f8fafc;
+        margin: 0 auto;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .profile-avatar i { font-size: 80px; color: #cbd5e1; }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 50px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        margin-top: 1rem;
+        background: #f0fdf4;
+        color: #16a34a;
+    }
+    .status-badge.inactive { background: #fef2f2; color: #dc2626; }
+
+    .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        padding: 2.5rem;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .info-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: #f1f5f9;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--accent-color);
+        flex-shrink: 0;
+    }
+
+    .info-content { display: flex; flex-direction: column; }
+    .info-label { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+    .info-value { font-size: 0.95rem; color: var(--text-main); font-weight: 500; margin-top: 2px; }
+
+    .section-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding: 0 2.5rem;
+        margin-top: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+
+    .notes-box {
+        margin: 0 2.5rem 2.5rem;
+        padding: 1.5rem;
+        background: #f8fafc;
+        border-radius: 16px;
+        border: 1px dashed #cbd5e1;
+    }
+</style>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Top Actions -->
+            <div class="d-flex justify-content-between align-items-center mb-4 px-2">
+                <a asp-action="Index" class="btn btn-white shadow-sm rounded-pill px-4">
+                    <i class="fas fa-arrow-right me-2"></i> القائمة
+                </a>
+                <div class="d-flex gap-2">
+                    <a asp-action="Edit" asp-route-id="@Model.No" class="btn btn-primary rounded-pill px-4 shadow">
+                        <i class="fas fa-edit me-2"></i> تعديل
+                    </a>
+                </div>
+            </div>
+
+            <div class="employee-card">
+                <div class="card-banner"></div>
+                
+                <div class="profile-section">
+                    <div class="profile-avatar">
+                        @if (!string.IsNullOrEmpty(Model.Photo))
+                        {
+                            <img src="@Model.Photo" alt="Employee Photo" />
+                        }
+                        else
+                        {
+                            <i class="fas fa-user"></i>
+                        }
+                    </div>
+                    <h2 class="fw-bold mt-3 mb-1">@Model.SearchName</h2>
+                    <div class="text-muted small fw-medium">كود الموظف: @Model.No</div>
+                    <div class="status-badge @(Model.EmployeeStatus != "Active" ? "inactive" : "")">
+                        <i class="fas fa-circle me-1" style="font-size: 6px;"></i>
+                        @Model.EmployeeStatus
+                    </div>
+                </div>
+
+                <div class="section-title">البيانات الوظيفية</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-building"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">الفرع</span>
+                            <span class="info-value">@(Model.LocationCode ?? "-")</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-user-tie"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">الوظيفة</span>
+                            <span class="info-value">@(Model.PositionCode ?? "-")</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-layer-group"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">القسم</span>
+                            <span class="info-value">@(Model.DepartmentCode ?? "-")</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-calendar-alt"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">تاريخ التعيين</span>
+                            <span class="info-value">@(Model.EmploymentDate?.ToString("yyyy-MM-dd") ?? "-")</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-clock"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">الشيفت</span>
+                            <span class="info-value">@(Model.start_shift) - @(Model.end_shift)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-title">البيانات الشخصية والتعليمية</div>
+                <div class="info-grid pt-3">
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-id-card"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">الرقم القومي</span>
+                            <span class="info-value">@(Model.NationalId ?? "-")</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-phone"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">رقم الهاتف</span>
+                            <span class="info-value">@(Model.MobilePhoneNo ?? "-")</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-map-marker-alt"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">المحافظة / المدينة</span>
+                            <span class="info-value">@(Model.City ?? "-")</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-graduation-cap"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">المؤهل الدراسي</span>
+                            <span class="info-value">@(Model.EducationDegree ?? "-")</span>
+                        </div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-icon"><i class="fas fa-home"></i></div>
+                        <div class="info-content">
+                            <span class="info-label">العنوان بالتفصيل</span>
+                            <span class="info-value">@(Model.Address ?? "-")</span>
+                        </div>
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(Model.Comment))
+                {
+                    <div class="section-title">ملاحظات</div>
+                    <div class="notes-box">
+                        <p class="mb-0 text-muted small">@Model.Comment</p>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>

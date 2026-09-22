@@ -1,0 +1,135 @@
+@model IEnumerable<HRSystem.Models.LeaveRequest>
+@{ ViewData["Title"] = "صندوق الموافقة — HR"; }
+
+<div class="animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-check-double text-success me-2"></i> صندوق الموافقة النهائية — HR</h3>
+            <p class="text-muted small mb-0">طلبات وافق عليها المدير وتنتظر الاعتماد النهائي</p>
+        </div>
+        <span class="badge bg-success fs-6 px-3 py-2 rounded-pill">@Model.Count() طلب</span>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3"><i class="fas fa-check-circle me-2"></i>@TempData["Success"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-3"><i class="fas fa-times-circle me-2"></i>@TempData["Error"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+
+    @if (!Model.Any())
+    {
+        <div class="card border-0 rounded-4 shadow-sm text-center py-5">
+            <i class="fas fa-check-circle fa-4x text-success mb-3 d-block"></i>
+            <h5 class="text-muted">لا توجد طلبات تنتظر موافقتك النهائية</h5>
+        </div>
+    }
+    else
+    {
+        <div class="card border-0 rounded-4 shadow-sm">
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead style="background:#f8f9fc;">
+                            <tr>
+                                <th class="p-3">الموظف</th>
+                                <th class="p-3">نوع الإجازة</th>
+                                <th class="p-3">من</th>
+                                <th class="p-3">إلى</th>
+                                <th class="p-3">أيام</th>
+                                <th class="p-3">موافقة المدير</th>
+                                <th class="p-3 text-center">إجراء HR</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var r in Model)
+                            {
+                                <tr>
+                                    <td class="p-3">
+                                        <div class="fw-bold text-dark">@r.Employee?.SearchName</div>
+                                        <div class="text-muted small">@r.EmployeeNo</div>
+                                    </td>
+                                    <td class="p-3">
+                                        <span class="badge bg-primary bg-opacity-15 text-primary px-3 py-1 rounded-pill">@r.LeaveType?.NameAr</span>
+                                    </td>
+                                    <td class="p-3 small">@r.StartDate.ToString("yyyy/MM/dd")</td>
+                                    <td class="p-3 small">@r.EndDate.ToString("yyyy/MM/dd")</td>
+                                    <td class="p-3"><span class="fw-bold">@r.TotalDays</span></td>
+                                    <td class="p-3 small text-muted">
+                                        <i class="fas fa-check text-success me-1"></i>
+                                        @r.ManagerActionDate?.ToString("yyyy/MM/dd")
+                                        @if (!string.IsNullOrEmpty(r.ManagerNotes)) { <div class="text-muted">@r.ManagerNotes</div> }
+                                    </td>
+                                    <td class="p-3 text-center">
+                                        <div class="d-flex gap-2 justify-content-center">
+                                            <button class="btn btn-sm btn-success rounded-pill px-3"
+                                                    onclick="hrAction(@r.Id, true)"
+                                                    data-bs-toggle="modal" data-bs-target="#hrModal">
+                                                <i class="fas fa-check me-1"></i> اعتماد
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-danger rounded-pill px-3"
+                                                    onclick="hrAction(@r.Id, false)"
+                                                    data-bs-toggle="modal" data-bs-target="#hrModal">
+                                                <i class="fas fa-times me-1"></i> رفض
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section Modals {
+    <div class="modal fade" id="hrModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:20px;">
+                <div class="modal-header text-white" id="hrModalHeader" style="border-radius:20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold" id="hrModalTitle"></h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="HRAction" method="post">
+                    <input type="hidden" name="requestId" id="hrRequestId" />
+                    <input type="hidden" name="approve" id="hrApprove" />
+                    <div class="modal-body p-4">
+                        <label class="form-label fw-bold">ملاحظات HR (اختياري)</label>
+                        <textarea name="notes" class="form-control rounded-3" rows="3" placeholder="أضف ملاحظة..."></textarea>
+                    </div>
+                    <div class="modal-footer border-0 p-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                        <button type="submit" class="btn rounded-pill px-4 fw-bold" id="hrSubmitBtn"></button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function hrAction(id, approve) {
+            document.getElementById('hrRequestId').value = id;
+            document.getElementById('hrApprove').value = approve;
+            const hdr = document.getElementById('hrModalHeader');
+            const btn = document.getElementById('hrSubmitBtn');
+            const title = document.getElementById('hrModalTitle');
+            if (approve) {
+                hdr.style.background = 'linear-gradient(135deg,#1cc88a,#17a673)';
+                title.innerHTML = '<i class="fas fa-check me-2"></i> تأكيد الاعتماد النهائي';
+                btn.className = 'btn btn-success rounded-pill px-4 fw-bold';
+                btn.innerHTML = '<i class="fas fa-check me-2"></i> اعتماد';
+            } else {
+                hdr.style.background = 'linear-gradient(135deg,#e74a3b,#c0392b)';
+                title.innerHTML = '<i class="fas fa-times me-2"></i> تأكيد الرفض';
+                btn.className = 'btn btn-danger rounded-pill px-4 fw-bold';
+                btn.innerHTML = '<i class="fas fa-times me-2"></i> رفض';
+            }
+        }
+    </script>
+}

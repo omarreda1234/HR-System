@@ -1,0 +1,84 @@
+name: Build & Deploy to Production Windows Server
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Publish & Deploy HRSystem Service
+    runs-on: [ self-hosted, Windows, X64 ]
+
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Build & Publish Project
+        shell: powershell
+        run: |
+          Write-Host "Publishing HRSystem in Release mode (win-x86)..."
+          $publishDir = "$env:RUNNER_TEMP\publish_hr"
+          if (Test-Path $publishDir) { Remove-Item -Recurse -Force $publishDir }
+          
+          # Publish targeting 32-bit x86 for ZKTeco COM SDK compatibility
+          dotnet publish "HRSystem/HRSystem.csproj" -c Release -r win-x86 --self-contained false -o $publishDir
+          
+          if (!(Test-Path "$publishDir\HRSystem.exe")) {
+            Write-Error "Build failed: HRSystem.exe not found in publish directory."
+            exit 1
+          }
+          Write-Host "Publish successful."
+
+      - name: Deploy to Production Folder & Restart Service
+        shell: powershell
+        run: |
+          $target = "C:\Publish\HRSystem"
+          $source = "$env:RUNNER_TEMP\publish_hr"
+          
+          Write-Host "Stopping HRSystemService..."
+          Stop-Service -Name "HRSystemService" -ErrorAction SilentlyContinue
+          Start-Sleep -Seconds 2
+
+          # Ensure target directory exists
+          if (!(Test-Path $target)) {
+            New-Item -ItemType Directory -Path $target -Force | Out-Null
+          }
+
+          # Backup existing production appsettings.json to protect connection string & configs
+          $appSettingsBackup = "$target\appsettings.json.bak"
+          if (Test-Path "$target\appsettings.json") {
+            Copy-Item "$target\appsettings.json" $appSettingsBackup -Force
+          }
+
+          Write-Host "Copying updated files to $target..."
+          Copy-Item "$source\*" $target -Recurse -Force
+
+          # Restore production appsettings.json
+          if (Test-Path $appSettingsBackup) {
+            Copy-Item $appSettingsBackup "$target\appsettings.json" -Force
+            Remove-Item $appSettingsBackup -Force
+            Write-Host "Production appsettings.json preserved."
+          }
+
+          Write-Host "Starting HRSystemService..."
+          Start-Service -Name "HRSystemService"
+          Start-Sleep -Seconds 4
+
+      - name: Verify Service Health
+        shell: powershell
+        run: |
+          $svc = Get-Service -Name "HRSystemService"
+          Write-Host "HRSystemService Status: $($svc.Status)"
+          if ($svc.Status -ne 'Running') {
+            Write-Error "HRSystemService is not running!"
+            exit 1
+          }
+
+          Write-Host "Checking Application Health on Port 5051..."
+          try {
+            $resp = Invoke-RestMethod -Uri "http://localhost:5051/Home/GetAutoSyncStatus" -TimeoutSec 10
+            Write-Host "System is UP & Healthy. Status: $($resp.status)"
+          } catch {
+            Write-Warning "Health endpoint took longer to respond, but Windows Service is active."
+          }

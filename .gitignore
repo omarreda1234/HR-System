@@ -1,0 +1,33 @@
+## Visual Studio / .NET Core
+.vs/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+_ReSharper*/
+*.DotSettings.user
+
+## Build Results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rms/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Publish outputs
+Publish/
+PublishOutput/
+publish/
+
+## Environment / Secrets
+# appsettings.Development.json
+# Uncomment below if you keep production secrets out of git:
+# appsettings.Production.json

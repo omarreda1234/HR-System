@@ -1,0 +1,146 @@
+@model IEnumerable<HRSystem.Models.EmployeeLoan>
+@{ ViewData["Title"] = "السلف والقروض"; }
+
+<div class="animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-hand-holding-usd text-warning me-2"></i> السلف والقروض</h3>
+            <p class="text-muted small mb-0">متابعة سلف الموظفين والاقتطاعات الشهرية</p>
+        </div>
+        <button class="btn btn-gradient rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#addLoanModal">
+            <i class="fas fa-plus me-2"></i> إضافة سلفة
+        </button>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm"><i class="fas fa-check-circle me-2"></i>@TempData["Success"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+
+    <div class="card border-0 rounded-4 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead style="background:#f8f9fc;">
+                        <tr>
+                            <th class="p-3">الموظف</th>
+                            <th class="p-3 text-end">المبلغ الكلي</th>
+                            <th class="p-3 text-end">القسط الشهري</th>
+                            <th class="p-3 text-end">المتبقي</th>
+                            <th class="p-3 text-center">التقدم</th>
+                            <th class="p-3 text-center">الحالة</th>
+                            <th class="p-3 text-center">إجراء</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var l in Model)
+                        {
+                            double pct = l.TotalAmount > 0 ? Math.Min(100, (double)(l.TotalAmount - l.RemainingAmount) / (double)l.TotalAmount * 100) : 0;
+                            string[] colors = { "warning", "success", "secondary" };
+                            string[] labels = { "نشطة", "مكتملة", "ملغاة" };
+                            int si = (int)l.Status;
+                            <tr>
+                                <td class="p-3">
+                                    <div class="fw-bold text-dark small">@l.Employee?.SearchName</div>
+                                    <div class="text-muted" style="font-size:0.72rem;">@l.EmployeeNo — منذ: @l.StartDate.ToString("yyyy/MM")</div>
+                                </td>
+                                <td class="p-3 text-end">@l.TotalAmount.ToString("N0")</td>
+                                <td class="p-3 text-end text-primary fw-bold">@l.MonthlyInstallment.ToString("N0")</td>
+                                <td class="p-3 text-end @(l.RemainingAmount > 0 ? "text-danger" : "text-success") fw-bold">
+                                    @l.RemainingAmount.ToString("N0")
+                                </td>
+                                <td class="p-3" style="min-width:120px;">
+                                    <div class="progress" style="height:8px; border-radius:10px;">
+                                        <div class="progress-bar bg-@colors[si]" style="width:@pct.ToString("0")%;border-radius:10px;"></div>
+                                    </div>
+                                    <div class="text-muted mt-1" style="font-size:0.7rem;">@pct.ToString("0")% مسدد</div>
+                                </td>
+                                <td class="p-3 text-center">
+                                    <span class="badge bg-@colors[si] bg-opacity-20 text-@colors[si] rounded-pill px-3 py-1 fw-bold small">
+                                        @labels[si]
+                                    </span>
+                                </td>
+                                <td class="p-3 text-center">
+                                    @if (l.Status == HRSystem.Models.LoanStatus.Active)
+                                    {
+                                        <form asp-action="CancelLoan" method="post" class="d-inline"
+                                              onsubmit="return confirm('هل تريد إلغاء هذه السلفة؟')">
+                                            <input type="hidden" name="id" value="@l.Id" />
+                                            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                                                <i class="fas fa-ban me-1"></i> إلغاء
+                                            </button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Modals {
+    <div class="modal fade" id="addLoanModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:20px;">
+                <div class="modal-header text-white" style="background:linear-gradient(135deg,#f6c23e,#e0a800);border-radius:20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-hand-holding-usd me-2"></i> إضافة سلفة / قرض</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="AddLoan" method="post">
+                    <div class="modal-body p-4">
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">الموظف</label>
+                            <select name="EmployeeNo" class="form-select rounded-3" required>
+                                <option value="">-- اختر الموظف --</option>
+                                @foreach (var e in ViewBag.Employees as List<Microsoft.AspNetCore.Mvc.Rendering.SelectListItem>)
+                                {
+                                    <option value="@e.Value">@e.Text</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold">المبلغ الكلي</label>
+                                <input type="number" name="TotalAmount" class="form-control rounded-3"
+                                       step="0.01" min="1" required id="loanTotal" oninput="calcInstall()" />
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold">عدد الأقساط</label>
+                                <input type="number" id="loanInstallCount" class="form-control rounded-3"
+                                       min="1" max="60" value="12" oninput="calcInstall()" />
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">القسط الشهري (محسوب تلقائياً)</label>
+                            <input type="number" name="MonthlyInstallment" id="loanInstall"
+                                   class="form-control rounded-3 bg-light" step="0.01" min="1" required />
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">ملاحظات</label>
+                            <textarea name="Notes" class="form-control rounded-3" rows="2"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 p-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                        <button type="submit" class="btn btn-warning text-white rounded-pill px-4 fw-bold">
+                            <i class="fas fa-plus me-2"></i> إضافة
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function calcInstall() {
+            const total = parseFloat(document.getElementById('loanTotal').value) || 0;
+            const count = parseInt(document.getElementById('loanInstallCount').value) || 1;
+            document.getElementById('loanInstall').value = count > 0 ? (total / count).toFixed(2) : 0;
+        }
+    </script>
+}

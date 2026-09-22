@@ -1,0 +1,582 @@
+@{
+    ViewData["Title"] = "إدارة أسماء البصمة";
+}
+
+<link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" />
+
+<style>
+    .page-header-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+        padding: 1.5rem 2rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .premium-card {
+        background: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 0.15rem 1.75rem 0 rgba(58, 59, 69, 0.1);
+        border: none;
+    }
+
+    .table-custom {
+        margin-bottom: 0;
+        width: 100% !important;
+    }
+
+    .table-custom thead th {
+        background-color: #f8f9fc;
+        color: #4e73df;
+        font-weight: 700;
+        font-size: 0.9rem;
+        padding: 1rem 1.25rem;
+        border-bottom: 2px solid #e3e6f0;
+    }
+
+    .table-custom tbody td {
+        padding: 1rem 1.25rem;
+        vertical-align: middle;
+        border-bottom: 1px solid #e3e6f0;
+        color: #2d3748;
+    }
+
+    .table-custom tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .emp-code-badge {
+        background-color: #eef2ff;
+        color: #4338ca;
+        border: 1px solid #c7d2fe;
+        font-weight: 700;
+        font-size: 0.95rem;
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-family: monospace;
+    }
+
+    .emp-name-text {
+        color: #1e293b;
+        font-weight: 700;
+        font-size: 1rem;
+    }
+
+    /* Custom DataTables Pagination Styling */
+    .dataTables_paginate .pagination .page-item.active .page-link {
+        background-color: #4e73df;
+        border-color: #4e73df;
+        color: #fff;
+        border-radius: 6px;
+    }
+
+    .dataTables_paginate .pagination .page-item .page-link {
+        border-radius: 6px;
+        margin: 0 2px;
+        color: #4e73df;
+    }
+
+    /* Modal Layer Fixes */
+    .modal {
+        z-index: 1060 !important;
+    }
+    .modal-backdrop {
+        z-index: 1050 !important;
+    }
+</style>
+
+<div class="container-fluid pt-5 mt-4">
+    <!-- Top Header -->
+    <div class="page-header-card d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">
+                <i class="fas fa-fingerprint text-primary me-2"></i> أسماء البصمة المسجلة بالفرع
+            </h3>
+            <p class="text-muted small mb-0">قراءة واستعراض أسماء الموظفين مباشرة من ذاكرة جهاز البصمة مع التصفية والصفحات (Pagination).</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-warning text-dark fw-bold shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#editSingleModal">
+                <i class="fas fa-edit me-1"></i> تعديل اسم موظف
+            </button>
+            <button type="button" class="btn btn-success fw-bold shadow-sm px-3" data-bs-toggle="modal" data-bs-target="#excelImportModal">
+                <i class="fas fa-file-excel me-1"></i> رفع شيت Excel
+            </button>
+        </div>
+    </div>
+
+    <!-- Selection Bar -->
+    <div class="premium-card p-4 mb-4">
+        <div class="row align-items-end g-3">
+            <div class="col-md-5">
+                <label class="form-label fw-bold text-dark mb-2">
+                    <i class="fas fa-building text-primary me-1"></i> اختر الفرع:
+                </label>
+                <select id="branchSelect" class="form-select form-select-lg shadow-sm">
+                    <option value="">-- اختر الفرع --</option>
+                    @if (ViewBag.Branches != null)
+                    {
+                        foreach (var b in ViewBag.Branches)
+                        {
+                            <option value="@b.BranchId">فرع: @b.BranchName (@b.BranchCode)</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label fw-bold text-dark mb-2">
+                    <i class="fas fa-hdd text-info me-1"></i> أو اختر جهاز البصمة مباشرة:
+                </label>
+                <select id="deviceSelect" class="form-select form-select-lg shadow-sm">
+                    <option value="">-- اختر الجهاز --</option>
+                    @if (ViewBag.Devices != null)
+                    {
+                        foreach (var d in ViewBag.Devices)
+                        {
+                            <option value="@d.DeviceId" data-branch-id="@d.BranchId">جهاز: @d.DeviceName (@d.Ipaddress)</option>
+                        }
+                    }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="button" id="btnFetchDeviceNames" onclick="fetchDeviceNames()" class="btn btn-primary btn-lg w-100 fw-bold shadow-sm">
+                    <i class="fas fa-sync me-1"></i> قراءة البصمة
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Device Status Banner & Search Filter -->
+    <div id="deviceStatusBanner" class="premium-card p-3 mb-4 d-none border-start border-4 border-primary">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-primary-subtle text-primary p-3 rounded-circle">
+                    <i class="fas fa-network-wired fa-lg"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold text-dark mb-0" id="bannerDeviceName">اسم الجهاز</h5>
+                    <span class="text-muted small" id="bannerDeviceIp">0.0.0.0</span>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="input-group" style="width: 280px;">
+                    <span class="input-group-text bg-white text-muted"><i class="fas fa-search"></i></span>
+                    <input type="text" id="tableSearchInput" class="form-control" placeholder="بحث بالاسم أو الكود..." />
+                </div>
+                <div class="bg-light px-3 py-2 rounded-3 border">
+                    <span class="text-muted small me-2">المسجلين بالجهاز:</span>
+                    <span class="fw-bold text-primary fs-5" id="totalUsersCount">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Results Table Card -->
+    <div class="premium-card p-4 overflow-hidden">
+        <div class="table-responsive">
+            <table id="deviceUsersTable" class="table table-custom">
+                <thead>
+                    <tr>
+                        <th class="ps-4" style="width: 15%;">كود الموظف</th>
+                        <th style="width: 50%;">الاسم المسجل داخل جهاز البصمة</th>
+                        <th style="width: 15%;" class="text-center">الصلاحية</th>
+                        <th style="width: 20%;" class="text-center pe-4">التحكم</th>
+                    </tr>
+                </thead>
+                <tbody id="deviceUsersBody">
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <i class="fas fa-search-location fa-3x mb-3 text-secondary"></i>
+                            <h5 class="fw-bold">اختر الفرع أو الجهاز ثم اضغط "قراءة البصمة"</h5>
+                            <p class="mb-0 small">سيتم قراءة الأسماء مباشرة من الذاكرة الحية للجهاز وعرضها بوضوح.</p>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Single Edit -->
+<!-- Modal: Single Edit -->
+<div class="modal fade" id="editSingleModal" tabindex="-1" aria-labelledby="editSingleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-primary text-white rounded-top-4">
+                <h5 class="modal-title fw-bold" id="editSingleModalLabel"><i class="fas fa-edit me-2"></i> تعديل اسم موظف على البصمة</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+            <div class="modal-body p-4 bg-white">
+                <input type="hidden" id="modalTargetDeviceId" value="" />
+                <input type="hidden" id="modalTargetBranchId" value="" />
+
+                <div class="alert alert-primary py-2 px-3 mb-3 d-flex align-items-center justify-content-between rounded-3 border-0">
+                    <span class="small"><i class="fas fa-hdd me-1"></i> الجهاز المستهدف:</span>
+                    <strong class="small" id="modalTargetDeviceName">--</strong>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-dark">كود الموظف (Enroll Number):</label>
+                    <input type="text" id="modalEmpCode" class="form-control form-control-lg bg-light text-dark fw-bold border" placeholder="مثال: 4576" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-bold text-dark">الاسم الجديد المراد حفظه على البصمة:</label>
+                    <input type="text" id="modalEmpNewName" class="form-control form-control-lg text-dark border" placeholder="مثال: نادر محمد أحمد عبدالله حجر" />
+                </div>
+            </div>
+            <div class="modal-footer bg-light border-0 rounded-bottom-4 p-3">
+                <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" id="btnSaveSingleName" onclick="saveSingleName()" class="btn btn-primary fw-bold px-4 shadow-sm">
+                    <span id="btnSaveSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+                    <span id="btnSaveText"><i class="fas fa-save me-1"></i> حفظ وتسميع على البصمة</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Excel Import -->
+<div class="modal fade" id="excelImportModal" tabindex="-1" aria-labelledby="excelImportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-success text-white rounded-top-4">
+                <h5 class="modal-title fw-bold" id="excelImportModalLabel"><i class="fas fa-file-excel me-2"></i> رفع أسماء شيت Excel للفرع</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="إغلاق"></button>
+            </div>
+            <form id="excelForm" onsubmit="saveExcelNames(event)" enctype="multipart/form-data">
+                <div class="modal-body p-4 bg-white">
+                    <div class="alert alert-info small mb-3">
+                        <i class="fas fa-info-circle me-1"></i> تأكد من احتواء ملف الإكسيل على العمودين: <strong>Code</strong> و <strong>Name</strong>.
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark">اختر ملف Excel:</label>
+                        <input type="file" id="modalExcelFile" name="excelFile" class="form-control form-control-lg border" accept=".xlsx, .xls" required />
+                    </div>
+                </div>
+                <div class="modal-footer bg-light border-0 rounded-bottom-4 p-3">
+                    <button type="button" class="btn btn-secondary px-4 fw-bold" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" id="btnExcelSubmit" class="btn btn-success fw-bold px-4 shadow-sm">
+                        <span id="btnExcelSpinner" class="spinner-border spinner-border-sm me-1 d-none" role="status" aria-hidden="true"></span>
+                        <span id="btnExcelText"><i class="fas fa-upload me-1"></i> رفع وتسميع للبصمة</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+    <script>
+        let dataTableInstance = null;
+        let lastLoadedDeviceId = null;
+        let lastLoadedBranchId = null;
+        let lastLoadedDeviceName = '';
+
+        // Global function: Fetch Device Names
+        window.fetchDeviceNames = function() {
+            let branchId = $('#branchSelect').val();
+            let deviceId = $('#deviceSelect').val();
+
+            if (!branchId && !deviceId) {
+                Swal.fire('تنبيه', 'يرجى اختيار الفرع أو جهاز البصمة أولاً.', 'warning');
+                return;
+            }
+
+            lastLoadedDeviceId = deviceId;
+            lastLoadedBranchId = branchId;
+            lastLoadedDeviceName = $('#deviceSelect option:selected').text();
+            if (!lastLoadedDeviceName || lastLoadedDeviceName.includes('-- اختر')) {
+                lastLoadedDeviceName = $('#branchSelect option:selected').text();
+            }
+
+            if ($.fn.DataTable.isDataTable('#deviceUsersTable')) {
+                $('#deviceUsersTable').DataTable().destroy();
+            }
+
+            $('#deviceUsersBody').html(`
+                <tr>
+                    <td colspan="4" class="text-center py-5">
+                        <div class="spinner-border text-primary mb-3" style="width: 3rem; height: 3rem;"></div>
+                        <h5 class="text-primary fw-bold">جاري الاتصال بجهاز البصمة وقراءة الأسماء...</h5>
+                        <p class="text-muted small mb-0">يرجى الانتظار لحين اكتمال عملية السحب المباشرة.</p>
+                    </td>
+                </tr>
+            `);
+
+            $.get('/Fingerprint/GetBranchDeviceUsers', { branchId: branchId, deviceId: deviceId }, function(res) {
+                if (res.success) {
+                    $('#deviceStatusBanner').removeClass('d-none');
+                    $('#bannerDeviceName').text(res.deviceName);
+                    $('#bannerDeviceIp').text('العنوان الشبكي: ' + res.ipAddress);
+                    $('#totalUsersCount').text(res.totalUsers);
+                    lastLoadedDeviceName = res.deviceName + ' (' + res.ipAddress + ')';
+
+                    renderTable(res.users || []);
+                } else {
+                    $('#deviceStatusBanner').addClass('d-none');
+                    $('#deviceUsersBody').html(`
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-danger">
+                                <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                                <h5 class="fw-bold">${res.message}</h5>
+                            </td>
+                        </tr>
+                    `);
+                }
+            }).fail(function() {
+                Swal.fire('خطأ', 'تعذر الاتصال بخادم النظام.', 'error');
+            });
+        };
+
+        // Global function: Render Table
+        window.renderTable = function(users) {
+            if ($.fn.DataTable.isDataTable('#deviceUsersTable')) {
+                $('#deviceUsersTable').DataTable().destroy();
+            }
+
+            if (users.length === 0) {
+                $('#deviceUsersBody').html(`
+                    <tr>
+                        <td colspan="4" class="text-center py-5 text-muted">
+                            <i class="fas fa-folder-open fa-3x mb-2 text-secondary"></i>
+                            <p class="mb-0">لا يوجد موظفون مسجلون على هذا الجهاز.</p>
+                        </td>
+                    </tr>
+                `);
+                return;
+            }
+
+            let html = '';
+            users.forEach(u => {
+                let privBadge = u.privilege === 'مدير الجهاز' 
+                    ? '<span class="badge bg-warning text-dark px-3 py-2 rounded-pill"><i class="fas fa-shield-alt me-1"></i> مدير (Admin)</span>'
+                    : '<span class="badge bg-light text-secondary border px-3 py-2 rounded-pill"><i class="fas fa-user me-1"></i> موظف</span>';
+
+                let safeName = (u.nameOnDevice || '').replace(/'/g, "\\'");
+
+                html += `
+                    <tr>
+                        <td class="ps-4"><span class="emp-code-badge">${u.enrollNumber}</span></td>
+                        <td><span class="emp-name-text">${u.nameOnDevice}</span></td>
+                        <td class="text-center">${privBadge}</td>
+                        <td class="text-center pe-4">
+                            <button type="button" class="btn btn-outline-primary btn-sm px-3 rounded-pill fw-bold" onclick="openUpdateModal('${u.enrollNumber}', '${safeName}')">
+                                <i class="fas fa-edit me-1"></i> تعديل الاسم
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            $('#deviceUsersBody').html(html);
+
+            // Initialize DataTable
+            dataTableInstance = $('#deviceUsersTable').DataTable({
+                "language": {
+                    "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/ar.json"
+                },
+                "pageLength": 10,
+                "lengthMenu": [[10, 25, 50, 100, -1], [10, 25, 50, 100, "الكل"]],
+                "responsive": true,
+                "searching": true,
+                "dom": '<"d-flex justify-content-between align-items-center mb-3"l>rt<"d-flex justify-content-between align-items-center mt-3"ip>',
+                "order": [[0, "asc"]]
+            });
+        };
+
+        // Global function: Open Modal
+        window.openUpdateModal = function(code, currentName) {
+            $('#editSingleModal #modalEmpCode').val(code);
+            $('#editSingleModal #modalEmpNewName').val(currentName);
+
+            let devId = $('#deviceSelect').val() || lastLoadedDeviceId || '';
+            let branchId = $('#branchSelect').val() || lastLoadedBranchId || '';
+            let devName = lastLoadedDeviceName || $('#deviceSelect option:selected').text() || 'الجهاز النشط';
+
+            $('#modalTargetDeviceId').val(devId);
+            $('#modalTargetBranchId').val(branchId);
+            $('#modalTargetDeviceName').text(devName);
+
+            var modalEl = document.getElementById('editSingleModal');
+            var modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+            modal.show();
+        };
+
+        // Global function: Save Single Name
+        window.saveSingleName = function() {
+            let code = $('#editSingleModal #modalEmpCode').val();
+            let newName = $('#editSingleModal #modalEmpNewName').val();
+
+            if (code) code = code.trim();
+            if (newName) newName = newName.trim();
+
+            let deviceId = $('#modalTargetDeviceId').val() || $('#deviceSelect').val() || lastLoadedDeviceId;
+            let branchId = $('#modalTargetBranchId').val() || $('#branchSelect').val() || lastLoadedBranchId;
+
+            if (!code || !newName) {
+                Swal.fire('تنبيه', 'يرجى إدخال الكود والاسم الجديد.', 'warning');
+                return;
+            }
+
+            if (!deviceId && !branchId) {
+                Swal.fire('تنبيه', 'يرجى اختيار جهاز البصمة أو الفرع لحفظ وتسميع الاسم عليه.', 'warning');
+                return;
+            }
+
+            // Show Spinner on Button
+            $('#btnSaveSpinner').removeClass('d-none');
+            $('#btnSaveText').text('جاري التسميع...');
+            $('#btnSaveSingleName').prop('disabled', true);
+
+            // Show SweetAlert Loading Overlay
+            Swal.fire({
+                title: 'جاري حفظ وتسميع الاسم على البصمة...',
+                text: 'الاتصال بالذاكرة الحية للجهاز...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            $.ajax({
+                url: '/Fingerprint/UpdateDeviceName',
+                type: 'POST',
+                timeout: 8000,
+                data: {
+                    employeeNo: code,
+                    newName: newName,
+                    branchId: branchId,
+                    deviceId: deviceId
+                },
+                success: function(res) {
+                    if (res.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: 'تم التحديث بنجاح',
+                            text: res.message
+                        });
+                        var modalEl = document.getElementById('editSingleModal');
+                        var modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) modal.hide();
+
+                        window.fetchDeviceNames();
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'تعذر التسميع على البصمة',
+                            text: res.message
+                        });
+                    }
+                },
+                error: function(xhr, status, error) {
+                    let errText = status === 'timeout' 
+                        ? 'انتهت مهلة الاتصال بالبصمة (Timeout 8s). يرجى التأكد من توصيل جهاز البصمة بالشبكة.'
+                        : ('تعذر التواصل مع الخادم: ' + (error || status));
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'خطأ اتصال',
+                        text: errText
+                    });
+                },
+                complete: function() {
+                    // Restore Button State
+                    $('#btnSaveSpinner').addClass('d-none');
+                    $('#btnSaveText').html('<i class="fas fa-save me-1"></i> حفظ وتسميع على البصمة');
+                    $('#btnSaveSingleName').prop('disabled', false);
+                }
+            });
+        };
+
+        // Global function: Save Excel
+        window.saveExcelNames = function(e) {
+            if (e) e.preventDefault();
+            let fileInput = $('#modalExcelFile')[0];
+            let file = fileInput && fileInput.files ? fileInput.files[0] : null;
+            let branchId = $('#branchSelect').val();
+            let deviceId = $('#deviceSelect').val();
+
+            if (!file) {
+                Swal.fire('تنبيه', 'يرجى اختيار ملف Excel أولاً.', 'warning');
+                return;
+            }
+
+            let formData = new FormData();
+            formData.append('excelFile', file);
+            if (branchId) formData.append('branchId', branchId);
+            if (deviceId) formData.append('deviceId', deviceId);
+
+            // Show Spinner on Excel Button
+            $('#btnExcelSpinner').removeClass('d-none');
+            $('#btnExcelText').text('جاري الرفع والبدء بالمزامنة...');
+            $('#btnExcelSubmit').prop('disabled', true);
+
+            Swal.fire({
+                title: 'جاري رفع الملف والتسميع لأجهزة البصمة...',
+                allowOutsideClick: false,
+                didOpen: () => { Swal.showLoading(); }
+            });
+
+            $.ajax({
+                url: '/Fingerprint/ImportAndSyncNames',
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(res) {
+                    if (res.success) {
+                        Swal.fire('تمت المزامنة بنجاح', res.message, 'success');
+                        var modalEl = document.getElementById('excelImportModal');
+                        var modal = bootstrap.Modal.getInstance(modalEl);
+                        if (modal) modal.hide();
+
+                        window.fetchDeviceNames();
+                    } else {
+                        Swal.fire('فشل المزامنة', res.message, 'error');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    Swal.fire('خطأ اتصال', 'تعذر التواصل مع الخادم: ' + (error || status), 'error');
+                },
+                complete: function() {
+                    $('#btnExcelSpinner').addClass('d-none');
+                    $('#btnExcelText').html('<i class="fas fa-upload me-1"></i> رفع وتسميع للبصمة');
+                    $('#btnExcelSubmit').prop('disabled', false);
+                }
+            });
+        };
+
+        $(document).ready(function() {
+            // Ensure modals are appended directly to body
+            $('#editSingleModal, #excelImportModal').appendTo('body');
+
+            // Explicit click bindings for safety
+            $(document).on('click', '#btnSaveSingleName', function(e) {
+                e.preventDefault();
+                window.saveSingleName();
+            });
+
+            // Device filter by branch
+            $('#branchSelect').on('change', function() {
+                let selectedBranch = $(this).val();
+                if (selectedBranch) {
+                    $('#deviceSelect option').each(function() {
+                        let devBranch = $(this).data('branch-id');
+                        if (!devBranch || devBranch == selectedBranch) {
+                            $(this).show();
+                        } else {
+                            $(this).hide();
+                        }
+                    });
+                    $('#deviceSelect').val('');
+                } else {
+                    $('#deviceSelect option').show();
+                }
+            });
+
+            // Real-time Search connected to DataTable
+            $('#tableSearchInput').on('keyup input', function() {
+                if (dataTableInstance) {
+                    dataTableInstance.search(this.value).draw();
+                }
+            });
+        });
+    </script>
+}

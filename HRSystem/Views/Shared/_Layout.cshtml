@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - نظام إدارة الموارد البشرية | HR System</title>
+    
+    <!-- Google Fonts: Cairo -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5 RTL CDN + Local Fallback -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.rtl.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    
+    <style>
+        :root {
+            --primary-color: #4e73df;
+            --primary-dark: #2e59d9;
+            --secondary-color: #858796;
+            --success-color: #1cc88a;
+            --info-color: #36b9cc;
+            --warning-color: #f6c23e;
+            --danger-color: #e74a3b;
+            --body-bg: #f4f6fb;
+            --card-shadow: 0 0.25rem 1.5rem rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            font-family: 'Cairo', sans-serif;
+        }
+
+        body {
+            background-color: var(--body-bg);
+            color: #4a5568;
+            padding-top: 85px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Modern Glass Navbar */
+        .navbar-premium {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+            transition: all 0.3s ease;
+            z-index: 1040;
+        }
+
+        .navbar-brand {
+            font-weight: 800;
+            font-size: 1.4rem;
+            color: #2b6cb0 !important;
+            display: flex;
+            align-items: center;
+            letter-spacing: -0.5px;
+        }
+
+        .navbar-brand i {
+            color: #4e73df;
+            font-size: 1.6rem;
+        }
+
+        .nav-item {
+            margin: 0 2px;
+        }
+
+        .nav-link {
+            font-weight: 700;
+            font-size: 0.92rem;
+            color: #4a5568 !important;
+            padding: 0.6rem 0.9rem !important;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .nav-link i {
+            font-size: 1rem;
+            color: #718096;
+            transition: color 0.2s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: #4e73df !important;
+            background-color: rgba(78, 115, 223, 0.08);
+        }
+
+        .nav-link:hover i, .nav-link.active i {
+            color: #4e73df;
+        }
+
+        /* Dropdown Styling */
+        .dropdown-menu {
+            border: 1px solid #edf2f7;
+            border-radius: 14px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+            padding: 0.5rem;
+            min-width: 220px;
+        }
+
+        .dropdown-item {
+            font-weight: 600;
+            font-size: 0.88rem;
+            border-radius: 8px;
+            padding: 0.6rem 1rem;
+            color: #4a5568;
+            transition: all 0.2s;
+        }
+
+        .dropdown-item:hover {
+            background-color: #f7fafc;
+            color: #4e73df;
+        }
+
+        /* User Profile Pill */
+        .user-pill {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 30px;
+            padding: 4px 12px 4px 6px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+            transition: all 0.2s ease;
+        }
+
+        .user-pill:hover {
+            border-color: #cbd5e0;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.06);
+        }
+
+        /* Main Content Container */
+        main {
+            flex: 1 0 auto;
+        }
+
+        footer {
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            padding: 1.2rem 0;
+            color: #a0aec0;
+            font-size: 0.85rem;
+            margin-top: auto;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 8px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-xl navbar-premium fixed-top py-2">
+            <div class="container-fluid px-lg-4">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">
+                    <i class="fas fa-fingerprint me-2"></i> <span>HR SYSTEM</span>
+                </a>
+                
+                <button class="navbar-toggler border-0 shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#mainNavbar" aria-controls="mainNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <i class="fas fa-bars fa-lg text-primary"></i>
+                </button>
+                
+                <div class="collapse navbar-collapse" id="mainNavbar">
+                    <ul class="navbar-nav me-auto mb-2 mb-xl-0">
+                        <li class="nav-item">
+                            <a class="nav-link @(ViewContext.RouteData.Values["Controller"]?.ToString() == "Home" ? "active" : "")" asp-controller="Home" asp-action="Index">
+                                <i class="fas fa-fingerprint"></i> <span>البصمات</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @(ViewContext.RouteData.Values["Controller"]?.ToString() == "Employees" ? "active" : "")" asp-controller="Employees" asp-action="Index">
+                                <i class="fas fa-users"></i> <span>الموظفين</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @(ViewContext.RouteData.Values["Controller"]?.ToString() == "Branches" && ViewContext.RouteData.Values["Action"]?.ToString() == "Index" ? "active" : "")" asp-controller="Branches" asp-action="Index">
+                                <i class="fas fa-store-alt"></i> <span>الفروع</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @(ViewContext.RouteData.Values["Action"]?.ToString() == "FingerDevices" ? "active" : "")" asp-controller="Branches" asp-action="FingerDevices">
+                                <i class="fas fa-hdd"></i> <span>أجهزة البصمة</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @(ViewContext.RouteData.Values["Action"]?.ToString() == "ManageNames" ? "active" : "")" asp-controller="Fingerprint" asp-action="ManageNames">
+                                <i class="fas fa-id-card-clip"></i> <span>أسماء البصمة</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link @(ViewContext.RouteData.Values["Controller"]?.ToString() == "Dahua" ? "active" : "")" asp-controller="Dahua" asp-action="Index">
+                                <i class="fas fa-video"></i> <span>فحص الـ DVR</span>
+                            </a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle @(ViewContext.RouteData.Values["Controller"]?.ToString() == "Leaves" ? "active" : "")" href="#" data-bs-toggle="dropdown">
+                                <i class="fas fa-calendar-check"></i> <span>الإجازات</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg">
+                                <li><a class="dropdown-item py-2" asp-controller="Leaves" asp-action="MyRequests"><i class="fas fa-paper-plane me-2 text-primary"></i> طلباتي</a></li>
+                                @if (User.IsInRole("SuperAdmin") || User.IsInRole("HR") || User.IsInRole("Manager"))
+                                {
+                                    <li><a class="dropdown-item py-2" asp-controller="Leaves" asp-action="ManagerInbox"><i class="fas fa-inbox me-2 text-warning"></i> صندوق المدير</a></li>
+                                }
+                                @if (User.IsInRole("SuperAdmin") || User.IsInRole("HR"))
+                                {
+                                    <li><a class="dropdown-item py-2" asp-controller="Leaves" asp-action="HRInbox"><i class="fas fa-check-double me-2 text-success"></i> موافقة HR</a></li>
+                                    <li><a class="dropdown-item py-2" asp-controller="Leaves" asp-action="AllRequests"><i class="fas fa-list-alt me-2 text-info"></i> كل الطلبات</a></li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><a class="dropdown-item py-2" asp-controller="Leaves" asp-action="LeaveTypes"><i class="fas fa-tags me-2 text-secondary"></i> أنواع الإجازات</a></li>
+                                    <li><a class="dropdown-item py-2" asp-controller="Leaves" asp-action="Balances"><i class="fas fa-balance-scale me-2 text-secondary"></i> أرصدة الموظفين</a></li>
+                                }
+                            </ul>
+                        </li>
+                        @if (User.IsInRole("SuperAdmin") || User.IsInRole("HR"))
+                        {
+                            <li class="nav-item dropdown">
+                                <a class="nav-link dropdown-toggle @(ViewContext.RouteData.Values["Controller"]?.ToString() == "Payroll" ? "active" : "")" href="#" data-bs-toggle="dropdown">
+                                    <i class="fas fa-money-bill-wave"></i> <span>الرواتب</span>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg">
+                                    <li><a class="dropdown-item py-2" asp-controller="Payroll" asp-action="Index"><i class="fas fa-file-invoice-dollar me-2 text-success"></i> مسير الرواتب</a></li>
+                                    <li><a class="dropdown-item py-2" asp-controller="Payroll" asp-action="SalaryStructures"><i class="fas fa-sliders-h me-2 text-primary"></i> هيكلة الرواتب</a></li>
+                                    <li><a class="dropdown-item py-2" asp-controller="Payroll" asp-action="Loans"><i class="fas fa-hand-holding-usd me-2 text-warning"></i> السلف والقروض</a></li>
+                                </ul>
+                            </li>
+                        }
+                    </ul>
+                    
+                    <div class="d-flex align-items-center gap-2">
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <div class="dropdown">
+                                <a class="user-pill d-flex align-items-center text-decoration-none dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 32px; height: 32px;">
+                                        <i class="fas fa-user-tie"></i>
+                                    </div>
+                                    <div class="text-start pe-2">
+                                        <div class="small fw-bold text-dark lh-1">@User.Identity.Name</div>
+                                        <div class="text-muted" style="font-size: 0.7rem;">
+                                            @if (User.IsInRole("SuperAdmin")) { <span>Super Admin</span> }
+                                            else if (User.IsInRole("HR")) { <span>HR Manager</span> }
+                                            else if (User.IsInRole("BranchAdmin")) { <span>Branch Manager</span> }
+                                            else { <span>User</span> }
+                                        </div>
+                                    </div>
+                                </a>
+                                <ul class="dropdown-menu dropdown-menu-end border-0 shadow-lg rounded-3" aria-labelledby="userDropdown">
+                                    @if (User.IsInRole("SuperAdmin"))
+                                    {
+                                        <li><a class="dropdown-item py-2 fw-bold text-primary" asp-controller="Home" asp-action="SessionLogs"><i class="fas fa-user-shield me-2 text-primary"></i> مراقبة الأجهزة والجلسات</a></li>
+                                        <li><hr class="dropdown-divider"></li>
+                                    }
+                                    <li>
+                                        <form asp-controller="Account" asp-action="Logout" method="post" class="px-2">
+                                            <button type="submit" class="btn btn-outline-danger w-100 rounded-3 btn-sm fw-bold">
+                                                <i class="fas fa-sign-out-alt me-2"></i> تسجيل خروج
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        }
+                        else
+                        {
+                            <a asp-controller="Account" asp-action="Login" class="btn btn-primary rounded-pill px-4 fw-bold">دخول</a>
+                        }
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <div class="container-fluid px-lg-4">
+        <main role="main" class="pb-3">
+            @RenderBody()
+        </main>
+    </div>
+
+    @await RenderSectionAsync("Modals", required: false)
+
+    <footer class="text-center">
+        <div class="container-fluid">
+            <p class="mb-0">&copy; @DateTime.Now.Year - نظام إدارة الموارد البشرية المتطور (HR System Premium)</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

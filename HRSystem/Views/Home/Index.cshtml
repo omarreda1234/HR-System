@@ -1,0 +1,621 @@
+@model IEnumerable<HRSystem.ModelView.AttendanceVM>
+
+@{
+    ViewData["Title"] = "سجل الحضور اللحظي";
+}
+
+<style>
+    .table-premium {
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.03);
+        overflow: hidden;
+        border: 1px solid #f1f5f9;
+    }
+    .table thead th {
+        background: #f8fafc;
+        color: #64748b;
+        font-weight: 700;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+        padding: 1.25rem 1rem;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    .table tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+        color: #1e293b;
+        font-weight: 500;
+        border-bottom: 1px solid #f8fafc;
+    }
+    .badge-soft {
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    .bg-success-soft { background: #ecfdf5; color: #10b981; }
+    .bg-info-soft { background: #eff6ff; color: #3b82f6; }
+    .bg-warning-soft { background: #fffbeb; color: #f59e0b; }
+    
+    .filter-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+    }
+    .filter-input {
+        border-radius: 10px;
+        border: 1px solid #cbd5e1;
+        padding: 0.6rem 1rem;
+    }
+    .btn-gradient {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: white;
+        border: none;
+        box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    }
+    .btn-gradient:hover {
+        background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+        color: white;
+        transform: translateY(-1px);
+    }
+
+    /* Modern Circular Device Action Buttons inside Modal */
+    .btn-device-circle {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        transition: all 0.25s ease;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        cursor: pointer;
+    }
+    
+    .btn-device-ping {
+        background: #eff6ff;
+        color: #2563eb;
+    }
+    .btn-device-ping:hover {
+        background: #3b82f6;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+    }
+    
+    .btn-device-port {
+        background: #ecfeff;
+        color: #0891b2;
+    }
+    .btn-device-port:hover {
+        background: #06b6d4;
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(6, 182, 212, 0.3);
+    }
+    
+    .btn-device-sync {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: white;
+        box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+    }
+    .btn-device-sync:hover {
+        background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4);
+    }
+</style>
+
+<div class="animate__animated animate__fadeIn">
+    <!-- Header -->
+    <div class="dashboard-header d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-1">
+                سجل الحضور والانصراف اللحظي
+                <span id="deviceStatsBadge" class="badge bg-info-soft text-info ms-2 fs-6 p-2 rounded-pill" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#missingDevicesModal">
+                    <i class="fas fa-sync fa-spin me-1"></i> جاري التحميل...
+                </span>
+                <span id="autoSyncBadge" class="badge bg-light text-secondary ms-1 fs-6 p-2 rounded-pill border" title="حالة السحب التلقائي (يعمل دورياً كل دقيقتين)">
+                    <i class="fas fa-robot me-1 text-primary"></i> <span id="autoSyncText">السحب التلقائي: نشط (كل دقيقتين)</span>
+                </span>
+            </h3>
+            <p class="text-muted small mb-0">مراقبة حية لجميع عمليات البصمة عبر الفروع</p>
+        </div>
+        <div class="d-flex gap-2">
+            @if (ViewBag.Calculate == true)
+            {
+                <button id="btnCalculate" class="btn btn-outline-danger rounded-pill px-4 fw-bold">
+                    <i class="fas fa-undo me-1"></i> إيقاف الحساب / وضع السجل
+                </button>
+            }
+            else
+            {
+                <button id="btnCalculate" class="btn btn-warning rounded-pill px-4 fw-bold text-dark">
+                    <i class="fas fa-calculator me-1"></i> تحديث وحساب الحضور
+                </button>
+            }
+            <a id="btnExport" asp-action="Export" 
+               asp-route-branchId="@ViewBag.SelectedBranchId" 
+               asp-route-deviceId="@ViewBag.SelectedDeviceId" 
+               asp-route-searchTerm="@ViewBag.SearchTerm"
+               asp-route-dateFrom="@ViewBag.DateFrom"
+               asp-route-dateTo="@ViewBag.DateTo"
+               asp-route-calculate="@ViewBag.Calculate"
+               class="btn btn-outline-success border-2 rounded-pill px-4 fw-bold">
+                <i class="fas fa-file-excel me-1"></i> تصدير Excel
+            </a>
+            <button id="btnRefresh" class="btn btn-gradient rounded-pill px-4">
+                <i class="fas fa-sync-alt me-1"></i> تحديث يدوي
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card filter-card">
+        <div class="card-body p-4">
+            <form id="filterForm" method="get" class="row g-3 align-items-end">
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label fw-bold small text-uppercase d-flex justify-content-between align-items-center">
+                        <span>بحث بالموظف</span>
+                        <span class="badge bg-light text-primary border" style="font-size: 0.65rem;" title="يدعم عدة أكواد مفصولة بفواصل مثل 101, 102 أو نسخ من Excel">أكواد متعددة بفاصلة ,</span>
+                    </label>
+                    <div class="position-relative">
+                        <input type="text" id="dashboardSearch" name="searchTerm" class="form-control ps-5 rounded-pill shadow-sm border-0 filter-input" 
+                               placeholder="كود أو عدة أكواد (مثال: 101, 102) أو الاسم..." value="@ViewBag.SearchTerm" 
+                               style="min-width: 250px; height: 45px; background: #fff;" 
+                               title="ابحث بكود واحد أو بعدة أكواد مفصولة بفواصل (101, 102, 103) أو مسافات أو أسطر منسوخة من Excel" />
+                        <i class="fas fa-search position-absolute text-muted" style="right: 20px; top: 14px;"></i>
+                    </div>
+                </div>
+                <div class="col-lg-2 col-md-3">
+                    <label class="form-label fw-bold small text-uppercase">من تاريخ</label>
+                    <input type="date" name="dateFrom" id="dateFrom" class="form-control filter-input" value="@ViewBag.DateFrom" />
+                </div>
+                <div class="col-lg-2 col-md-3">
+                    <label class="form-label fw-bold small text-uppercase">إلى تاريخ</label>
+                    <input type="date" name="dateTo" id="dateTo" class="form-control filter-input" value="@ViewBag.DateTo" />
+                </div>
+                @if (User.IsInRole("SuperAdmin") || User.IsInRole("HR"))
+                {
+                    <div class="col-lg-2 col-md-6">
+                        <label class="form-label fw-bold small text-uppercase">تصفية حسب الفرع</label>
+                        <select name="branchId" id="branchId" class="form-select filter-input">
+                            <option value="">جميع الفروع</option>
+                            @foreach (var branch in (IEnumerable<HRSystem.Models.Branch>)ViewBag.Branches)
+                            {
+                                <!option value="@branch.BranchId" @(ViewBag.SelectedBranchId == branch.BranchId ? "selected" : "")>@branch.BranchName</!option>
+                            }
+                        </select>
+                    </div>
+                }
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label fw-bold small text-uppercase">تصفية حسب الجهاز</label>
+                    <select name="deviceId" id="deviceId" class="form-select filter-input">
+                        <option value="">جميع الأجهزة</option>
+                        @foreach (var device in (IEnumerable<HRSystem.Models.FingerDevice>)ViewBag.Devices)
+                        {
+                            <!option value="@device.DeviceId" @(ViewBag.SelectedDeviceId == device.DeviceId ? "selected" : "")>@device.DeviceName</!option>
+                        }
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div id="dashboardContent">
+        <div class="table-premium position-relative">
+            <div id="tableLoader" class="position-absolute w-100 h-100 d-none justify-content-center align-items-center" style="background: rgba(255,255,255,0.7); z-index: 10; top: 0; left: 0; border-radius: 15px;">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></div>
+                    <p class="mt-2 fw-bold text-primary">جاري تحميل البيانات...</p>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">الموظف</th>
+                            <th>الجهاز</th>
+                            <th>الوقت والتاريخ</th>
+                            <th>الحالة</th>
+                            @if (ViewBag.Calculate == true)
+                            {
+                                <th>الشيفت</th>
+                                <th class="text-danger">تأخير (د)</th>
+                                <th class="text-success">إضافي (د)</th>
+                            }
+                            <th class="text-end pe-4">الفرع</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td class="ps-4">
+                                    <div class="d-flex align-items-center">
+                                        <div class="avatar-sm me-3 bg-light rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                            <i class="fas fa-user text-muted"></i>
+                                        </div>
+                                        <div>
+                                            <div class="fw-bold">@item.SearchName</div>
+                                            <div class="text-muted small">كود: @item.EmployeeNo</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge bg-light text-primary border border-primary-soft">
+                                        <i class="fas fa-microchip me-1"></i> @item.DeviceName
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="fw-bold">@item.LogTime.ToString("yyyy/MM/dd")</div>
+                                    <div class="text-muted small">@item.LogTime.ToString("hh:mm:ss tt")</div>
+                                </td>
+                                <td>
+                                    @if (item.Direction == "دخول")
+                                    {
+                                        <span class="badge badge-soft bg-success-soft"><i class="fas fa-sign-in-alt me-1"></i> @item.Direction</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge badge-soft bg-warning-soft"><i class="fas fa-sign-out-alt me-1"></i> @item.Direction</span>
+                                    }
+                                </td>
+                                @if (ViewBag.Calculate == true)
+                                {
+                                    <td class="small text-muted">
+                                        @if (!string.IsNullOrEmpty(item.StartShift))
+                                        {
+                                            <span>@item.StartShift - @item.EndShift</span>
+                                        }
+                                        else
+                                        {
+                                            <span>-</span>
+                                        }
+                                    </td>
+                                    <td class="fw-bold text-danger">@(item.DelayMinutes > 0 ? Math.Round(item.DelayMinutes.Value, 0).ToString() : "-")</td>
+                                    <td class="fw-bold text-success">@(item.OvertimeMinutes > 0 ? Math.Round(item.OvertimeMinutes.Value, 0).ToString() : "-")</td>
+                                }
+                                <td class="text-end pe-4 small text-muted">@item.BranchName</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            @if (ViewBag.TotalPages > 1)
+            {
+                <div class="p-4 border-top bg-light">
+                    <nav>
+                        <ul class="pagination pagination-sm justify-content-center mb-0">
+                            @for (int i = 1; i <= ViewBag.TotalPages; i++)
+                            {
+                                <li class="page-item @(i == ViewBag.CurrentPage ? "active" : "")">
+                                    <a class="page-link rounded-pill mx-1 px-3 update-page" href="javascript:void(0)" data-page="@i">@i</a>
+                                </li>
+                            }
+                        </ul>
+                    </nav>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Modals {
+    <div class="modal fade" id="missingDevicesModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-header bg-danger text-white" style="border-radius: 20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-exclamation-triangle me-2"></i> أجهزة لم تسجل بصمات اليوم</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body p-0" id="missingDevicesBody">
+                    <div class="text-center py-5">
+                        <div class="spinner-border text-danger" role="status"></div>
+                        <p class="mt-3 text-muted">جاري تحليل بيانات الأجهزة...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        let isCalculatedMode = "@ViewBag.Calculate".toLowerCase() === "true";
+        let currentPage = @ViewBag.CurrentPage;
+        let syncedDeviceIds = [];
+        let syncingDeviceIds = []; // Track devices currently syncing
+
+        $(document).ready(function() {
+            loadStats();
+            loadAutoSyncStatus();
+
+            $('#filterForm').on('submit', function(e) {
+                e.preventDefault();
+                clearTimeout(searchTimer);
+                currentPage = 1;
+                updateDashboard();
+            });
+
+            $(document).on('keydown', '#dashboardSearch', function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    clearTimeout(searchTimer);
+                    currentPage = 1;
+                    updateDashboard();
+                }
+            });
+
+            $(document).on('click', '#btnRefresh', function() {
+                updateDashboard();
+            });
+
+            $(document).on('click', '#btnCalculate', function() {
+                isCalculatedMode = !isCalculatedMode;
+                updateDashboard();
+            });
+
+            $(document).on('click', '.update-page', function() {
+                currentPage = $(this).data('page');
+                updateDashboard();
+            });
+
+            let searchTimer;
+            $(document).on('input', '#dashboardSearch', function() {
+                clearTimeout(searchTimer);
+                currentPage = 1; // Reset to page 1 on search
+                searchTimer = setTimeout(function() {
+                    updateDashboard();
+                }, 400); 
+            });
+
+            $(document).on('change', '.filter-input, #branchId, #deviceId', function() {
+                currentPage = 1;
+                updateDashboard();
+            });
+
+            setInterval(function() {
+                updateDashboard();
+            }, 30000);
+        });
+
+        function updateDashboard() {
+            let formData = $('#filterForm').serialize();
+            formData += "&page=" + currentPage;
+            if (isCalculatedMode) {
+                formData += "&calculate=true";
+            }
+            
+            const targetUrl = '/Home/Index?' + formData;
+            
+            $('#tableLoader').removeClass('d-none').addClass('d-flex');
+            $('.table-premium table').css('opacity', '0.3');
+
+            $.get(targetUrl, function(html) {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                
+                // Update the WHOLE content area including pagination
+                const newContent = doc.querySelector('#dashboardContent').innerHTML;
+                $('#dashboardContent').html(newContent);
+                
+                // Update the buttons state in header if needed
+                const newHeaderActions = doc.querySelector('.dashboard-header .d-flex').innerHTML;
+                $('.dashboard-header .d-flex').html(newHeaderActions);
+                
+                // Update export link
+                const exportUrl = '/Home/Export?' + formData;
+                $('#btnExport').attr('href', exportUrl);
+                
+                loadStats();
+                loadAutoSyncStatus();
+            });
+        }
+
+        function loadAutoSyncStatus() {
+            $.get('/Home/GetAutoSyncStatus', function(data) {
+                if (data && data.lastSyncTime) {
+                    $('#autoSyncText').text(`آخر سحب آلي: ${data.lastSyncTime} (${data.syncedCount}/${data.totalCount})`);
+                    $('#autoSyncBadge').removeClass('text-secondary text-danger').addClass('text-success border-success-subtle');
+                } else if (data && data.status) {
+                    $('#autoSyncText').text(`السحب التلقائي: ${data.status}`);
+                }
+            });
+        }
+
+        // Robust Top-Right Toast Notifications with Offline Fallback
+        let Toast;
+        if (typeof Swal !== 'undefined') {
+            Toast = Swal.mixin({
+                toast: true,
+                position: 'top-end',
+                showConfirmButton: false,
+                timer: 3000,
+                timerProgressBar: true
+            });
+        } else {
+            // Elegant premium custom toast fallback for completely offline environments!
+            Toast = {
+                fire: function(options) {
+                    const iconMap = {
+                        success: '<i class="fas fa-check-circle me-1"></i>',
+                        error: '<i class="fas fa-times-circle me-1"></i>',
+                        info: '<i class="fas fa-info-circle me-1"></i>'
+                    };
+                    const icon = iconMap[options.icon] || '';
+                    const title = options.title || '';
+                    const text = options.text || '';
+                    
+                    const $toast = $('<div class="toast-fallback animate__animated animate__slideInRight">')
+                        .css({
+                            position: 'fixed',
+                            top: '20px',
+                            right: '20px',
+                            background: options.icon === 'success' ? '#1cc88a' : (options.icon === 'error' ? '#e74a3b' : '#4e73df'),
+                            color: 'white',
+                            padding: '15px 25px',
+                            borderRadius: '12px',
+                            boxShadow: '0 8px 25px rgba(0,0,0,0.15)',
+                            zIndex: 99999,
+                            direction: 'rtl',
+                            fontFamily: 'inherit',
+                            minWidth: '280px'
+                        })
+                        .html(`<div class="fw-bold fs-6 mb-1">${icon} ${title}</div><div style="font-size: 0.85rem; opacity: 0.9;">${text}</div>`);
+                    
+                    $('body').append($toast);
+                    setTimeout(() => {
+                        $toast.fadeOut(400, function() { $(this).remove(); });
+                    }, 3500);
+                }
+            };
+        }
+
+        function loadStats() {
+            const branchId = $('#branchId').val() || "";
+            $.get('/Home/GetDeviceStats?branchId=' + branchId, function(data) {
+                const text = `الأجهزة النشطة: ${data.syncedCount} من ${data.totalDevices}`;
+                $('#deviceStatsBadge').html(`<i class="fas fa-server me-1"></i> ${text}`);
+                
+                let html = '<div class="list-group list-group-flush">';
+                
+                // Filter out devices that have been synced in this session
+                const activeMissing = data.missingDevices.filter(d => !syncedDeviceIds.includes(d.DeviceId || d.id));
+                
+                if (activeMissing.length === 0) {
+                    html += '<div class="p-5 text-center"><i class="fas fa-check-circle text-success fa-3x mb-3"></i><p class="fw-bold text-success mb-0">جميع الأجهزة سجلت بصمات اليوم بنجاح!</p></div>';
+                } else {
+                    activeMissing.forEach(d => {
+                        const devId = d.DeviceId || d.id;
+                        const isSyncing = syncingDeviceIds.includes(devId);
+                        
+                        let syncBtnHtml = isSyncing 
+                            ? `<button class="btn-device-circle btn-device-sync sync-device" data-id="${devId}" disabled style="background: #f59e0b; box-shadow: 0 0 10px rgba(245,158,11,0.5); pointer-events: none;">
+                                   <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                               </button>`
+                            : `<button class="btn-device-circle btn-device-sync sync-device" data-id="${devId}" title="سحب البصمات">
+                                   <i class="fas fa-sync-alt"></i>
+                               </button>`;
+
+                        html += `<div class="list-group-item d-flex justify-content-between align-items-center py-3 flex-wrap gap-2" style="border-bottom: 1px solid #f1f5f9;">
+                                    <div class="d-flex align-items-center">
+                                        <span class="fw-bold text-dark"><i class="fas fa-terminal me-2 text-danger"></i> ${d.DeviceName || d.name}</span>
+                                        <span class="badge bg-danger-soft text-danger ms-2" style="font-size: 0.75rem;">كود: ${devId}</span>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn-device-circle btn-device-ping ping-device" data-id="${devId}" title="تبنيج الاتصال (Ping)">
+                                            <i class="fas fa-wifi"></i>
+                                        </button>
+                                        <button class="btn-device-circle btn-device-port check-port" data-id="${devId}" title="فحص البورت">
+                                            <i class="fas fa-plug"></i>
+                                        </button>
+                                        ${syncBtnHtml}
+                                    </div>
+                                 </div>`;
+                    });
+                }
+                html += '</div>';
+                $('#missingDevicesBody').html(html);
+            });
+        }
+
+        // Action Handlers for missing devices modal
+        $(document).on('click', '.ping-device', function() {
+            const id = $(this).data('id');
+            const $btn = $(this);
+            const originalHtml = $btn.html();
+            
+            // Set button to loading state with bootstrap spinner
+            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>').css('opacity', '0.7').css('pointer-events', 'none');
+            Toast.fire({ icon: 'info', title: 'جاري فحص الاتصال...', text: 'يرجى الانتظار ثواني' });
+            
+            $.post('/Branches/Ping', { id: id }, function(res) {
+                if (res.success) {
+                    Toast.fire({ icon: 'success', title: 'متصل', text: 'زمن الاستجابة: ' + res.roundtrip });
+                } else {
+                    Toast.fire({ icon: 'error', title: 'غير متصل', text: 'لا يمكن الوصول للجهاز' });
+                }
+                $btn.prop('disabled', false).html(originalHtml);
+            }).fail(function() {
+                $btn.prop('disabled', false).html(originalHtml);
+                Toast.fire({ icon: 'error', title: 'خطأ', text: 'حدث خطأ في الاتصال بالخادم' });
+            });
+        });
+
+        $(document).on('click', '.check-port', function() {
+            const id = $(this).data('id');
+            const $btn = $(this);
+            const originalHtml = $btn.html();
+            
+            // Set button to loading state with bootstrap spinner
+            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>').css('opacity', '0.7').css('pointer-events', 'none');
+            Toast.fire({ icon: 'info', title: 'جاري فحص البورت...', text: 'يرجى الانتظار' });
+            
+            $.post('/Branches/CheckPort', { id: id }, function(res) {
+                if (res.success) {
+                    Toast.fire({ icon: 'success', title: 'البورت متاح', text: res.message });
+                } else {
+                    Toast.fire({ icon: 'error', title: 'البورت مغلق', text: res.message });
+                }
+                $btn.prop('disabled', false).html(originalHtml);
+            }).fail(function() {
+                $btn.prop('disabled', false).html(originalHtml);
+                Toast.fire({ icon: 'error', title: 'خطأ', text: 'حدث خطأ في الاتصال بالخادم' });
+            });
+        });
+
+        $(document).on('click', '.sync-device', function() {
+            const id = $(this).data('id');
+            const $btn = $(this);
+            const $item = $btn.closest('.list-group-item');
+            const originalHtml = $btn.html();
+            
+            // Set button to loading state with bootstrap spinner
+            $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>').css('background', '#f59e0b').css('box-shadow', '0 0 10px rgba(245,158,11,0.5)').css('pointer-events', 'none');
+            
+            // Register this device as currently syncing
+            syncingDeviceIds.push(id);
+            
+            Toast.fire({ icon: 'info', title: 'جاري سحب البصمات...', text: 'قد يستغرق الأمر بعض الوقت، يرجى الانتظار' });
+            
+            $.post('/Branches/SyncNow', { id: id }, function(res) {
+                if (res.success) {
+                    syncingDeviceIds = syncingDeviceIds.filter(d => d !== id); // Remove from syncing list
+                    syncedDeviceIds.push(id);
+                    Toast.fire({ icon: 'success', title: 'تمت المزامنة بنجاح', text: res.message });
+                    
+                    // Animate and remove the successfully synced device from the list immediately!
+                    $item.slideUp(400, function() {
+                        $(this).remove();
+                        // If no more missing devices remain, show the clean success checkmark!
+                        if ($('#missingDevicesBody .list-group-item').length === 0) {
+                            $('#missingDevicesBody').html('<div class="p-5 text-center"><i class="fas fa-check-circle text-success fa-3x mb-3"></i><p class="fw-bold text-success mb-0">جميع الأجهزة سجلت بصمات اليوم بنجاح!</p></div>');
+                        }
+                    });
+
+                    // Update main dashboard table in background
+                    updateDashboard();
+                } else {
+                    syncingDeviceIds = syncingDeviceIds.filter(d => d !== id); // Remove from syncing list
+                    Toast.fire({ icon: 'error', title: 'فشل السحب', text: res.message });
+                    $btn.prop('disabled', false).html(originalHtml).css('background', '').css('box-shadow', '').css('pointer-events', 'auto');
+                }
+            }).fail(function() {
+                syncingDeviceIds = syncingDeviceIds.filter(d => d !== id); // Remove from syncing list
+                $btn.prop('disabled', false).html(originalHtml).css('background', '').css('box-shadow', '').css('pointer-events', 'auto');
+                Toast.fire({ icon: 'error', title: 'خطأ', text: 'حدث خطأ في الاتصال بالخادم' });
+            });
+        });
+    </script>
+}

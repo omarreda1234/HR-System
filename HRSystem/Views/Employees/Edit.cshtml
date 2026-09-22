@@ -1,0 +1,173 @@
+@model HRSystem.Models.Employee
+
+@{
+    ViewData["Title"] = "تعديل بيانات الموظف - " + Model.SearchName;
+}
+
+<style>
+    .form-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        border: 1px solid #e2e8f0;
+    }
+    .form-label {
+        font-weight: 600;
+        color: #475569;
+        margin-bottom: 0.5rem;
+    }
+    .form-control, .form-select {
+        border-radius: 10px;
+        padding: 0.75rem 1rem;
+        border: 1px solid #cbd5e1;
+    }
+    .form-control:focus {
+        border-color: #2563eb;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+    .photo-preview {
+        width: 120px;
+        height: 120px;
+        border-radius: 12px;
+        object-fit: cover;
+        border: 2px solid #e2e8f0;
+        margin-bottom: 1rem;
+    }
+</style>
+
+<div class="container py-5 mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="fw-bold text-dark">تعديل بيانات الموظف</h3>
+                <a asp-action="Index" class="btn btn-outline-secondary rounded-pill">إلغاء والعودة</a>
+            </div>
+
+            <div class="form-card p-4 p-md-5">
+                <form asp-action="Edit" method="post" enctype="multipart/form-data">
+                    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                    <input type="hidden" asp-for="No" />
+
+                    <div class="row">
+                        <!-- Photo Upload -->
+                        <div class="col-md-12 mb-4 text-center">
+                            @if (!string.IsNullOrEmpty(Model.Photo))
+                            {
+                                <img src="@Model.Photo" id="imgPreview" class="photo-preview" />
+                            }
+                            else
+                            {
+                                <div id="imgPlaceholder" class="photo-preview bg-light d-inline-flex align-items-center justify-content-center">
+                                    <i class="fas fa-camera fa-2x text-muted"></i>
+                                </div>
+                                <img id="imgPreview" class="photo-preview d-none" />
+                            }
+                            <div class="mt-2">
+                                <label for="photoFile" class="btn btn-sm btn-outline-primary rounded-pill">
+                                    <i class="fas fa-upload me-1"></i> تغيير الصورة
+                                </label>
+                                <input type="file" name="photoFile" id="photoFile" class="d-none" accept="image/*" onchange="previewImage(this)" />
+                            </div>
+                        </div>
+
+                        <!-- Basic Info -->
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="SearchName" class="form-label">الاسم الكامل (للبحث)</label>
+                            <input asp-for="SearchName" class="form-control" placeholder="أدخل الاسم بالكامل" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="EnglishName" class="form-label">الاسم بالإنجليزية</label>
+                            <input asp-for="EnglishName" class="form-control" />
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="BranchId" class="form-label">الفرع</label>
+                            <select asp-for="BranchId" class="form-select" asp-items="@(new SelectList(ViewBag.Branches, "BranchId", "BranchName"))">
+                                <option value="">-- اختر الفرع --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="EmployeeStatus" class="form-label">حالة الموظف</label>
+                            <select asp-for="EmployeeStatus" class="form-select">
+                                <option value="Active">نشط</option>
+                                <option value="Inactive">غير نشط</option>
+                                <option value="OnLeave">في إجازة</option>
+                                <option value="Terminated">مستقيل</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="NationalId" class="form-label">الرقم القومي</label>
+                            <input asp-for="NationalId" class="form-control" maxlength="14" />
+                        </div>
+
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="City" class="form-label">المدينة / المحافظة</label>
+                            <input asp-for="City" class="form-control" placeholder="مثال: القاهرة" />
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label asp-for="EducationDegree" class="form-label">المؤهل الدراسي</label>
+                            <input asp-for="EducationDegree" class="form-control" placeholder="مثال: بكالوريوس هندسة" />
+                        </div>
+
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="MobilePhoneNo" class="form-label">رقم الموبايل</label>
+                            <input asp-for="MobilePhoneNo" class="form-control" />
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label asp-for="EmploymentDate" class="form-label">تاريخ التعيين</label>
+                            <input asp-for="EmploymentDate" type="date" class="form-control" />
+                        </div>
+
+                        <!-- Shift Info -->
+                        <div class="col-12 mt-3 mb-2 border-bottom pb-2">
+                            <h5 class="text-primary fw-bold">بيانات الشيفت والحضور</h5>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="start_shift" class="form-label">بداية الشيفت</label>
+                            <input asp-for="start_shift" class="form-control" placeholder="مثال: 12:00 PM" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="end_shift" class="form-label">نهاية الشيفت</label>
+                            <input asp-for="end_shift" class="form-control" placeholder="مثال: 10:00 PM" />
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label asp-for="Hours" class="form-label">عدد الساعات</label>
+                            <input asp-for="Hours" class="form-control" />
+                        </div>
+
+                        <div class="col-12 mb-3">
+                            <label asp-for="Address" class="form-label">العنوان</label>
+                            <input asp-for="Address" class="form-control" />
+                        </div>
+
+                        <div class="col-12 mb-4">
+                            <label asp-for="Comment" class="form-label">ملاحظات إضافية</label>
+                            <textarea asp-for="Comment" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-primary btn-lg rounded-pill px-5">
+                            <i class="fas fa-save me-2"></i> حفظ التغييرات
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    $('#imgPreview').attr('src', e.target.result).removeClass('d-none');
+                    $('#imgPlaceholder').addClass('d-none');
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+    </script>
+}

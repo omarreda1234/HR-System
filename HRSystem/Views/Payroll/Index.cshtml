@@ -1,0 +1,173 @@
+@model IEnumerable<HRSystem.Models.Payslip>
+@{
+    ViewData["Title"] = "مسير الرواتب";
+    int month = (int)ViewBag.Month;
+    int year  = (int)ViewBag.Year;
+    string[] months = { "", "يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر" };
+}
+
+<style>
+    .stat-mini { border:none; border-radius:15px; box-shadow:0 2px 12px rgba(0,0,0,0.07); }
+    .payslip-row:hover { background:#f8f9fc; }
+</style>
+
+<div class="animate__animated animate__fadeIn">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-money-bill-wave text-success me-2"></i> مسير الرواتب</h3>
+            <p class="text-muted small mb-0">@months[month] @year</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+            <!-- Month/Year selector -->
+            <form method="get" class="d-flex gap-2">
+                <select name="month" class="form-select form-select-sm rounded-pill border-0 shadow-sm" onchange="this.form.submit()">
+                    @for (int m = 1; m <= 12; m++)
+                    {
+                        <option value="@m" selected="@(m == month)">@months[m]</option>
+                    }
+                </select>
+                <select name="year" class="form-select form-select-sm rounded-pill border-0 shadow-sm" style="width:90px;" onchange="this.form.submit()">
+                    @for (int y = DateTime.Now.Year + 1; y >= DateTime.Now.Year - 2; y--)
+                    {
+                        <option value="@y" selected="@(y == year)">@y</option>
+                    }
+                </select>
+            </form>
+            <form asp-action="GenerateAll" method="post" class="d-inline">
+                <input type="hidden" name="month" value="@month" />
+                <input type="hidden" name="year"  value="@year" />
+                <button type="submit" class="btn btn-gradient rounded-pill px-4"
+                        onclick="return confirm('هل تريد إصدار مسير الرواتب لجميع الموظفين؟')">
+                    <i class="fas fa-play me-2"></i> إصدار الكل
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3 shadow-sm"><i class="fas fa-check-circle me-2"></i>@TempData["Success"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show rounded-3 shadow-sm"><i class="fas fa-exclamation-triangle me-2"></i>@TempData["Error"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="stat-mini card p-3 text-center">
+                <div class="text-muted small mb-1">عدد الموظفين</div>
+                <div class="display-6 fw-bold text-primary">@ViewBag.Count</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-mini card p-3 text-center">
+                <div class="text-muted small mb-1">إجمالي الرواتب</div>
+                <div class="fw-bold text-dark fs-4">@((decimal)ViewBag.TotalGross):N0</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-mini card p-3 text-center">
+                <div class="text-muted small mb-1">إجمالي الصافي</div>
+                <div class="fw-bold text-success fs-4">@((decimal)ViewBag.TotalNet):N0</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="stat-mini card p-3 text-center">
+                <div class="text-muted small mb-1">إجمالي الخصومات</div>
+                <div class="fw-bold text-danger fs-4">@((decimal)ViewBag.TotalGross - (decimal)ViewBag.TotalNet):N0</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Payslips Table -->
+    <div class="card border-0 rounded-4 shadow-sm">
+        <div class="card-body p-0">
+            @if (!Model.Any())
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-file-invoice-dollar fa-4x text-muted mb-3 d-block"></i>
+                    <p class="text-muted">لم يتم إصدار مسير الرواتب لهذا الشهر بعد</p>
+                    <form asp-action="GenerateAll" method="post" class="d-inline">
+                        <input type="hidden" name="month" value="@month" />
+                        <input type="hidden" name="year"  value="@year"  />
+                        <button type="submit" class="btn btn-gradient rounded-pill px-4">
+                            <i class="fas fa-play me-2"></i> إصدار المسير الآن
+                        </button>
+                    </form>
+                </div>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead style="background:#f8f9fc;">
+                            <tr>
+                                <th class="p-3">الموظف</th>
+                                <th class="p-3 text-end">الراتب الأساسي</th>
+                                <th class="p-3 text-end">الإجمالي</th>
+                                <th class="p-3 text-end">الخصومات</th>
+                                <th class="p-3 text-end">الصافي</th>
+                                <th class="p-3 text-center">الحالة</th>
+                                <th class="p-3 text-center">إجراءات</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in Model)
+                            {
+                                <tr class="payslip-row">
+                                    <td class="p-3">
+                                        <div class="fw-bold text-dark small">@p.Employee?.SearchName</div>
+                                        <div class="text-muted" style="font-size:0.72rem;">@p.EmployeeNo</div>
+                                    </td>
+                                    <td class="p-3 text-end small">@p.BaseSalary.ToString("N0")</td>
+                                    <td class="p-3 text-end small fw-bold">@p.GrossSalary.ToString("N0")</td>
+                                    <td class="p-3 text-end small text-danger">(@p.TotalDeductions.ToString("N0"))</td>
+                                    <td class="p-3 text-end fw-bold text-success">@p.NetSalary.ToString("N0")</td>
+                                    <td class="p-3 text-center">
+                                        @if (p.IsPublished)
+                                        {
+                                            <span class="badge bg-success bg-opacity-15 text-success rounded-pill px-3 py-1">✅ منشور</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-warning bg-opacity-15 text-warning rounded-pill px-3 py-1">⏳ مسودة</span>
+                                        }
+                                    </td>
+                                    <td class="p-3 text-center">
+                                        <div class="d-flex gap-1 justify-content-center">
+                                            <a asp-action="Download" asp-route-id="@p.Id"
+                                               class="btn btn-sm btn-outline-primary rounded-pill px-2" title="تحميل">
+                                                <i class="fas fa-download"></i>
+                                            </a>
+                                            <form asp-action="Publish" method="post" class="d-inline">
+                                                <input type="hidden" name="id" value="@p.Id" />
+                                                <input type="hidden" name="publish" value="@(!p.IsPublished)" />
+                                                <button class="btn btn-sm @(p.IsPublished ? "btn-outline-secondary" : "btn-outline-success") rounded-pill px-2"
+                                                        title="@(p.IsPublished ? "إخفاء" : "نشر")">
+                                                    <i class="fas @(p.IsPublished ? "fa-eye-slash" : "fa-eye")"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                        <tfoot style="background:#f8f9fc;">
+                            <tr class="fw-bold">
+                                <td class="p-3">الإجمالي</td>
+                                <td class="p-3 text-end">—</td>
+                                <td class="p-3 text-end">@Model.Sum(p => p.GrossSalary).ToString("N0")</td>
+                                <td class="p-3 text-end text-danger">(@Model.Sum(p => p.TotalDeductions).ToString("N0"))</td>
+                                <td class="p-3 text-end text-success">@Model.Sum(p => p.NetSalary).ToString("N0")</td>
+                                <td colspan="2"></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+</div>

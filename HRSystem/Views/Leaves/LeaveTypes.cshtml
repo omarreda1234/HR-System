@@ -1,0 +1,125 @@
+@model IEnumerable<HRSystem.Models.LeaveType>
+@{ ViewData["Title"] = "أنواع الإجازات"; }
+
+<div class="animate__animated animate__fadeIn">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold text-dark mb-0"><i class="fas fa-tags text-secondary me-2"></i> أنواع الإجازات</h3>
+            <p class="text-muted small mb-0">تحديد وإدارة أنواع الإجازات وأرصدتها السنوية</p>
+        </div>
+        <button class="btn btn-gradient rounded-pill px-4" data-bs-toggle="modal" data-bs-target="#leaveTypeModal">
+            <i class="fas fa-plus me-2"></i> إضافة نوع
+        </button>
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show rounded-3"><i class="fas fa-check-circle me-2"></i>@TempData["Success"]<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    }
+
+    <div class="row g-3">
+        @foreach (var t in Model)
+        {
+            <div class="col-md-3">
+                <div class="card border-0 rounded-4 shadow-sm p-3 text-center">
+                    <div class="badge bg-@t.ColorClass bg-opacity-15 text-@t.ColorClass rounded-pill px-3 py-2 mb-2 fw-bold fs-6">
+                        @t.NameAr
+                    </div>
+                    <div class="text-muted small mb-1">@t.Name</div>
+                    <div class="display-6 fw-bold text-dark">@t.DefaultDaysPerYear</div>
+                    <div class="text-muted small mb-2">يوم / سنة</div>
+                    <div class="d-flex justify-content-center gap-2 small">
+                        <span class="badge @(t.IsPaid ? "bg-success" : "bg-secondary") bg-opacity-15 @(t.IsPaid ? "text-success" : "text-secondary") rounded-pill px-2">
+                            @(t.IsPaid ? "مدفوعة" : "بدون أجر")
+                        </span>
+                        <span class="badge @(t.RequiresApproval ? "bg-warning" : "bg-info") bg-opacity-15 @(t.RequiresApproval ? "text-warning" : "text-info") rounded-pill px-2">
+                            @(t.RequiresApproval ? "تحتاج موافقة" : "تلقائية")
+                        </span>
+                    </div>
+                    <button class="btn btn-outline-primary btn-sm rounded-pill mt-3"
+                            onclick="editType(@t.Id,'@t.Name','@t.NameAr',@t.DefaultDaysPerYear,'@t.ColorClass',@t.IsPaid.ToString().ToLower(),@t.RequiresApproval.ToString().ToLower())"
+                            data-bs-toggle="modal" data-bs-target="#leaveTypeModal">
+                        <i class="fas fa-edit me-1"></i> تعديل
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Modals {
+    <div class="modal fade" id="leaveTypeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius:20px;">
+                <div class="modal-header text-white" style="background:linear-gradient(135deg,#4e73df,#224abe);border-radius:20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-tags me-2"></i> نوع الإجازة</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <form asp-action="SaveLeaveType" method="post">
+                    <input type="hidden" name="Id" id="ltId" value="0" />
+                    <div class="modal-body p-4">
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold">الاسم (عربي)</label>
+                                <input name="NameAr" id="ltNameAr" class="form-control rounded-3" required />
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold">الاسم (English)</label>
+                                <input name="Name" id="ltName" class="form-control rounded-3" required />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold">أيام/سنة</label>
+                                <input type="number" name="DefaultDaysPerYear" id="ltDays" class="form-control rounded-3" min="0" required />
+                            </div>
+                            <div class="col-6 mb-3">
+                                <label class="form-label fw-bold">اللون</label>
+                                <select name="ColorClass" id="ltColor" class="form-select rounded-3">
+                                    <option value="primary">أزرق</option>
+                                    <option value="success">أخضر</option>
+                                    <option value="warning">أصفر</option>
+                                    <option value="danger">أحمر</option>
+                                    <option value="info">سماوي</option>
+                                    <option value="secondary">رمادي</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-6 mb-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="IsPaid" id="ltIsPaid" value="true" />
+                                    <label class="form-check-label fw-bold" for="ltIsPaid">مدفوعة</label>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="RequiresApproval" id="ltReqApproval" value="true" checked />
+                                    <label class="form-check-label fw-bold" for="ltReqApproval">تحتاج موافقة</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 p-4">
+                        <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                        <button type="submit" class="btn btn-gradient rounded-pill px-4">حفظ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script>
+        function editType(id, name, nameAr, days, color, isPaid, reqApproval) {
+            document.getElementById('ltId').value = id;
+            document.getElementById('ltName').value = name;
+            document.getElementById('ltNameAr').value = nameAr;
+            document.getElementById('ltDays').value = days;
+            document.getElementById('ltColor').value = color;
+            document.getElementById('ltIsPaid').checked = isPaid;
+            document.getElementById('ltReqApproval').checked = reqApproval;
+        }
+    </script>
+}
