@@ -30,12 +30,17 @@ namespace HRSystem.Controllers
             ViewData["ReturnUrl"] = returnUrl;
             if (ModelState.IsValid)
             {
-                var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: false);
-                if (result.Succeeded)
+                var input = model.Email?.Trim() ?? string.Empty;
+                var user = await _userManager.FindByEmailAsync(input) ?? await _userManager.FindByNameAsync(input);
+                if (user != null)
                 {
-                    return RedirectToLocal(returnUrl);
+                    var result = await _signInManager.PasswordSignInAsync(user.UserName!, model.Password, model.RememberMe, lockoutOnFailure: false);
+                    if (result.Succeeded)
+                    {
+                        return RedirectToLocal(returnUrl);
+                    }
                 }
-                ModelState.AddModelError(string.Empty, "محاولة تسجيل دخول غير ناجحة.");
+                ModelState.AddModelError(string.Empty, "محاولة تسجيل دخول غير ناجحة. يرجى التأكد من البريد الإلكتروني وكلمة المرور.");
             }
             return View(model);
         }

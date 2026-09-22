@@ -148,6 +148,14 @@ public static class SeedData
             await userManager.CreateAsync(superUser, "Super@2468");
             await userManager.AddToRoleAsync(superUser, "SuperAdmin");
         }
+        else
+        {
+            var token = await userManager.GeneratePasswordResetTokenAsync(superUser);
+            await userManager.ResetPasswordAsync(superUser, token, "Super@2468");
+            superUser.LockoutEnd = null;
+            superUser.AccessFailedCount = 0;
+            await userManager.UpdateAsync(superUser);
+        }
 
         // 3. Seed HR User
         var hrEmail = "HR45@gmail.com";
@@ -157,6 +165,14 @@ public static class SeedData
             hrUser = new ApplicationUser { UserName = hrEmail, Email = hrEmail, EmailConfirmed = true };
             await userManager.CreateAsync(hrUser, "HR@2468");
             await userManager.AddToRoleAsync(hrUser, "HR");
+        }
+        else
+        {
+            var token = await userManager.GeneratePasswordResetTokenAsync(hrUser);
+            await userManager.ResetPasswordAsync(hrUser, token, "HR@2468");
+            hrUser.LockoutEnd = null;
+            hrUser.AccessFailedCount = 0;
+            await userManager.UpdateAsync(hrUser);
         }
 
         // 4. Seed BranchAdmins for each branch

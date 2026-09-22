@@ -7,7 +7,7 @@ on:
 
 jobs:
   deploy:
-    name: Publish & Deploy HRSystem Service
+    name: Publish & Deploy HRSystem to Production Server (192.168.1.57)
     runs-on: [ self-hosted, Windows, X64 ]
 
     steps:
@@ -30,55 +30,62 @@ jobs:
           }
           Write-Host "Publish successful."
 
-      - name: Deploy to Production Folder & Restart Service
+      - name: Deploy to Production Server (192.168.1.57) & Restart Service
         shell: powershell
         run: |
-          $target = "C:\Publish\HRSystem"
+          $prodTarget = "\\192.168.1.57\C$\HRSystem-prod"
           $source = "$env:RUNNER_TEMP\publish_hr"
           
-          Write-Host "Stopping HRSystemService..."
-          Stop-Service -Name "HRSystemService" -ErrorAction SilentlyContinue
-          Start-Sleep -Seconds 2
+          Write-Host "Stopping HRSystemService on Production Server (192.168.1.57)..."
+          Invoke-Command -ComputerName "192.168.1.57" -ScriptBlock { 
+            Stop-Service -Name "HRSystemService" -ErrorAction SilentlyContinue 
+          }
+          Start-Sleep -Seconds 3
 
-          # Ensure target directory exists
-          if (!(Test-Path $target)) {
-            New-Item -ItemType Directory -Path $target -Force | Out-Null
+          # Ensure target directory exists on 192.168.1.57
+          if (!(Test-Path $prodTarget)) {
+            New-Item -ItemType Directory -Path $prodTarget -Force | Out-Null
           }
 
-          # Backup existing production appsettings.json to protect connection string & configs
-          $appSettingsBackup = "$target\appsettings.json.bak"
-          if (Test-Path "$target\appsettings.json") {
-            Copy-Item "$target\appsettings.json" $appSettingsBackup -Force
+          # Backup existing production appsettings.json to protect production DB settings
+          $appSettingsBackup = "$prodTarget\appsettings.json.bak"
+          if (Test-Path "$prodTarget\appsettings.json") {
+            Copy-Item "$prodTarget\appsettings.json" $appSettingsBackup -Force
           }
 
-          Write-Host "Copying updated files to $target..."
-          Copy-Item "$source\*" $target -Recurse -Force
+          Write-Host "Copying updated files to Production Server ($prodTarget)..."
+          Copy-Item "$source\*" $prodTarget -Recurse -Force
 
           # Restore production appsettings.json
           if (Test-Path $appSettingsBackup) {
-            Copy-Item $appSettingsBackup "$target\appsettings.json" -Force
+            Copy-Item $appSettingsBackup "$prodTarget\appsettings.json" -Force
             Remove-Item $appSettingsBackup -Force
             Write-Host "Production appsettings.json preserved."
           }
 
-          Write-Host "Starting HRSystemService..."
-          Start-Service -Name "HRSystemService"
-          Start-Sleep -Seconds 4
+          Write-Host "Starting HRSystemService on Production Server (192.168.1.57)..."
+          Invoke-Command -ComputerName "192.168.1.57" -ScriptBlock { 
+            Start-Service -Name "HRSystemService" 
+          }
+          Start-Sleep -Seconds 5
 
-      - name: Verify Service Health
+      - name: Verify Production Service Health
         shell: powershell
         run: |
-          $svc = Get-Service -Name "HRSystemService"
-          Write-Host "HRSystemService Status: $($svc.Status)"
-          if ($svc.Status -ne 'Running') {
-            Write-Error "HRSystemService is not running!"
+          Write-Host "Checking Service Status on Production Server (192.168.1.57)..."
+          $svcStatus = Invoke-Command -ComputerName "192.168.1.57" -ScriptBlock { 
+            (Get-Service -Name "HRSystemService").Status 
+          }
+          Write-Host "Production HRSystemService Status: $svcStatus"
+          if ($svcStatus -ne 'Running') {
+            Write-Error "HRSystemService on 192.168.1.57 is not running!"
             exit 1
           }
 
-          Write-Host "Checking Application Health on Port 5051..."
+          Write-Host "Checking Application Health on http://192.168.1.57:5051..."
           try {
-            $resp = Invoke-RestMethod -Uri "http://localhost:5051/Home/GetAutoSyncStatus" -TimeoutSec 10
-            Write-Host "System is UP & Healthy. Status: $($resp.status)"
+            $resp = Invoke-RestMethod -Uri "http://192.168.1.57:5051/Home/GetAutoSyncStatus" -TimeoutSec 15
+            Write-Host "Production System is UP & Healthy. Status: $($resp.status)"
           } catch {
             Write-Warning "Health endpoint took longer to respond, but Windows Service is active."
           }
