@@ -63,6 +63,18 @@ jobs:
             Write-Host "Production appsettings.json preserved."
           }
 
+          # Ensure service ImagePath uses 32-bit x86 dotnet host for ZKTeco ActiveX COM compatibility
+          Invoke-Command -ComputerName "192.168.1.57" -ScriptBlock {
+            $x86Dotnet = "C:\Program Files (x86)\dotnet\dotnet.exe"
+            $dllPath = "C:\HRSystem-prod\HRSystem.dll"
+            $binPath = "`"$x86Dotnet`" `"$dllPath`""
+            Set-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\HRSystemService' -Name ImagePath -Value $binPath
+            
+            # Ensure ZKTeco SDK DLLs are in SysWOW64 and registered
+            Copy-Item "C:\HRSystem-prod\commpro.dll", "C:\HRSystem-prod\comms.dll", "C:\HRSystem-prod\zkemkeeper.dll", "C:\HRSystem-prod\zkemsdk.dll", "C:\HRSystem-prod\tcpcomm.dll" "C:\Windows\SysWOW64\" -Force -ErrorAction SilentlyContinue
+            & "C:\Windows\SysWOW64\regsvr32.exe" /s "C:\Windows\SysWOW64\zkemkeeper.dll"
+          }
+
           Write-Host "Starting HRSystemService on Production Server (192.168.1.57)..."
           Invoke-Command -ComputerName "192.168.1.57" -ScriptBlock { 
             Start-Service -Name "HRSystemService" 
