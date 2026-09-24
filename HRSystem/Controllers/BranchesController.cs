@@ -544,7 +544,8 @@ namespace HRSystem.Controllers
         [HttpPost]
         public async Task<IActionResult> TestZkAccessDb(string path)
         {
-            var (success, message) = await _zkAccessService.TestConnectionAsync(path);
+            var branch = await _context.Branches.FirstOrDefaultAsync(b => (b.ZkAccessDbPath != null && b.ZkAccessDbPath == path) || (path != null && b.VpnIp != null && path.Contains(b.VpnIp)));
+            var (success, message) = await _zkAccessService.TestConnectionAsync(path, branch?.ZkUsername, branch?.ZkPassword);
             return Json(new { success, message });
         }
 
@@ -633,7 +634,9 @@ namespace HRSystem.Controllers
                         targetMdbPath, 
                         userCode, 
                         userName, 
-                        deviceRecord.Ipaddress);
+                        deviceRecord.Ipaddress,
+                        deviceRecord.Branch?.ZkUsername,
+                        deviceRecord.Branch?.ZkPassword);
 
                     if (accSuccess)
                     {

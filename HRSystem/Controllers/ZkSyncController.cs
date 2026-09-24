@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using HRSystem.Models;
 using HRSystem.Services;
@@ -31,6 +32,28 @@ namespace HRSystem.Controllers
             return View(branches);
         }
 
+        private async Task<(string? username, string? password)> ResolveCredentialsAsync(string path, string? username, string? password)
+        {
+            if (!string.IsNullOrWhiteSpace(username)) return (username, password);
+
+            if (string.IsNullOrWhiteSpace(path)) return (null, null);
+
+            var match = Regex.Match(path, @"^\\\\([^\\]+)");
+            string ipOrHost = match.Success ? match.Groups[1].Value : "";
+
+            var branch = await _context.Branches.FirstOrDefaultAsync(b => 
+                (b.ZkAccessDbPath != null && b.ZkAccessDbPath.Trim() == path.Trim()) ||
+                (!string.IsNullOrEmpty(ipOrHost) && b.ZkAccessDbPath != null && b.ZkAccessDbPath.Contains(ipOrHost)) ||
+                (!string.IsNullOrEmpty(ipOrHost) && b.VpnIp != null && b.VpnIp.Trim() == ipOrHost));
+
+            if (branch != null && !string.IsNullOrWhiteSpace(branch.ZkUsername))
+            {
+                return (branch.ZkUsername, branch.ZkPassword);
+            }
+
+            return (null, null);
+        }
+
         [HttpPost]
         public async Task<IActionResult> Diagnose(string path, string? username, string? password)
         {
@@ -38,6 +61,8 @@ namespace HRSystem.Controllers
             {
                 return Json(new { success = false, summary = "يرجى كتابة أو اختيار مسار أولاً." });
             }
+
+            (username, password) = await ResolveCredentialsAsync(path, username, password);
 
             var diag = await _zkAccessService.DiagnoseConnectionAsync(path, username, password);
             return Json(new
@@ -60,13 +85,13 @@ namespace HRSystem.Controllers
             }
 
             branch.ZkAccessDbPath = string.IsNullOrWhiteSpace(path) ? null : path.Trim();
-            if (!string.IsNullOrWhiteSpace(username)) branch.ZkUsername = username.Trim();
+            branch.ZkUsername = string.IsNullOrWhiteSpace(username) ? null : username.Trim();
             if (!string.IsNullOrWhiteSpace(password)) branch.ZkPassword = password;
 
             _context.Update(branch);
             await _context.SaveChangesAsync();
 
-            return Json(new { success = true, message = $"تم حفظ إعدادات ZKTeco للفرع ({branch.BranchName}) بنجاح!" });
+            return Json(new { success = true, message = $"تم حفظ إعدادات وبيانات دخول ZKTeco للفرع ({branch.BranchName}) بنجاح!" });
         }
 
         [HttpPost]
@@ -81,6 +106,8 @@ namespace HRSystem.Controllers
                 return Json(new { success = false, message = "يرجى إدخال كود واسم الموظف." });
             }
 
+            (username, password) = await ResolveCredentialsAsync(path, username, password);
+
             var (success, msg) = await _zkAccessService.AddOrUpdateUserInAccessDbAsync(path, userCode.Trim(), userName.Trim(), deviceIp, username, password);
             return Json(new { success, message = msg });
         }
@@ -92,6 +119,8 @@ namespace HRSystem.Controllers
             {
                 return Json(new { success = false, message = "المسار غير محدد." });
             }
+
+            (username, password) = await ResolveCredentialsAsync(path, username, password);
 
             var users = await _zkAccessService.GetUsersAsync(path, search, limit: 100, username: username, password: password);
             return Json(new { success = true, count = users.Count, users });
