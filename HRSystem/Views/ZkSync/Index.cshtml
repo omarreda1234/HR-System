@@ -79,39 +79,33 @@
         </div>
         <div class="card-body p-4">
             <div class="row g-3">
-                <div class="col-lg-9 col-md-8">
-                    <label class="form-label fw-bold small text-muted">مسار قاعدة بيانات ZKTeco المستهدف:</label>
-                    <div class="input-group input-group-lg">
-                        <span class="input-group-text bg-light border-end-0 rounded-start-pill text-muted px-3"><i class="fas fa-network-wired"></i></span>
-                        <input type="text" id="diagInputPath" class="form-control border-start-0 rounded-end-pill" placeholder="مثال: \\172.16.9.60\ZKTeco\att2000.mdb" value="\\172.16.9.60\ZKTeco\att2000.mdb" />
+                <div class="col-lg-6 col-md-12">
+                    <label class="form-label fw-bold text-dark"><i class="fas fa-folder-open text-primary me-1"></i> مسار قاعدة بيانات ZKTeco (att2000.mdb):</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="fas fa-network-wired"></i></span>
+                        <input type="text" id="diagInputPath" class="form-control border-start-0" placeholder="مثال: \\172.16.9.60\ZKTeco\att2000.mdb" value="\\172.16.9.60\ZKTeco\att2000.mdb" />
                     </div>
                 </div>
-                <div class="col-lg-3 col-md-4 d-flex align-items-end">
-                    <button type="button" class="btn btn-primary btn-lg rounded-pill w-100 fw-bold shadow-sm" onclick="runDiagnostic()">
-                        <i class="fas fa-play me-1"></i> بدء التشخيص الآن
-                    </button>
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label fw-bold text-dark"><i class="fas fa-user text-info me-1"></i> اسم مستخدم ويندوز:</label>
+                    <input type="text" id="diagInputUsername" class="form-control" placeholder="مثال: eman أو eman05" />
+                </div>
+                <div class="col-lg-3 col-md-6">
+                    <label class="form-label fw-bold text-dark"><i class="fas fa-lock text-warning me-1"></i> كلمة مرور ويندوز:</label>
+                    <input type="password" id="diagInputPassword" class="form-control" placeholder="كلمة مرور جهاز الفرع" />
                 </div>
             </div>
 
-            <!-- Optional Credentials for Protected Shares -->
-            <div class="mt-3">
-                <a class="btn btn-link text-decoration-none p-0 small fw-bold text-muted" data-bs-toggle="collapse" href="#diagCredsCollapse" role="button">
-                    <i class="fas fa-key me-1 text-warning"></i> بيانات اعتماد ويندوز لجهاز الفرع (اختياري - إذا كانت المشاركة محمية بكلمة مرور)
-                </a>
-                <div class="collapse mt-2" id="diagCredsCollapse">
-                    <div class="p-3 bg-light rounded-3 border">
-                        <div class="row g-2">
-                            <div class="col-md-6">
-                                <label class="form-label small text-muted">اسم مستخدم ويندوز على جهاز الفرع:</label>
-                                <input type="text" id="diagInputUsername" class="form-control form-control-sm rounded-pill px-3" placeholder="مثال: eman أو Administrator" />
-                            </div>
-                            <div class="col-md-6">
-                                <label class="form-label small text-muted">كلمة مرور ويندوز:</label>
-                                <input type="password" id="diagInputPassword" class="form-control form-control-sm rounded-pill px-3" placeholder="••••••••" />
-                            </div>
-                        </div>
-                        <small class="text-muted d-block mt-2">يقوم النظام بتسجيل الدخول التلقائي لجهاز الفرع قبل فتح الملف وقراءة البيانات.</small>
-                    </div>
+            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-warning-subtle text-warning border px-3 py-2">
+                        <i class="fas fa-shield-alt me-1"></i> سيتم تسجيل الدخول لجهاز الفرع تلقائياً باستخدام هذه البيانات وحفظها
+                    </span>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary px-5 py-2 rounded-pill fw-bold shadow-sm" onclick="runDiagnostic()">
+                        <i class="fas fa-key me-1"></i> فحص وتشغيل الاتصال بالباسورد
+                    </button>
                 </div>
             </div>
 

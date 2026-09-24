@@ -4,12 +4,26 @@ using System.Data.OleDb;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
 namespace HRSystem.Services
 {
+    [StructLayout(LayoutKind.Sequential)]
+    public class NETRESOURCE
+    {
+        public int dwScope = 2;
+        public int dwType = 1;
+        public int dwDisplayType = 3;
+        public int dwUsage = 1;
+        public string? lpLocalName = null;
+        public string? lpRemoteName;
+        public string? lpComment = null;
+        public string? lpProvider = null;
+    }
+
     public class DiagnosticStep
     {
         public string Title { get; set; } = "";
@@ -39,6 +53,12 @@ namespace HRSystem.Services
     {
         private readonly ILogger<ZkAccessDbService> _logger;
 
+        [DllImport("mpr.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern int WNetAddConnection2(NETRESOURCE lpNetResource, string? lpPassword, string? lpUsername, int dwFlags);
+
+        [DllImport("mpr.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        private static extern int WNetCancelConnection2(string lpName, int dwFlags, bool fForce);
+
         public ZkAccessDbService(ILogger<ZkAccessDbService> logger)
         {
             _logger = logger;
@@ -49,14 +69,54 @@ namespace HRSystem.Services
             return $@"Provider=Microsoft.Jet.OLEDB.4.0;Data Source={mdbPath};Persist Security Info=False;";
         }
 
-        public async Task<bool> AuthenticateNetworkShareAsync(string path, string? username, string? password)
+        public async Task<(bool success, string message)> AuthenticateNetworkShareAsync(string path, string? username, string? password)
         {
-            if (string.IsNullOrWhiteSpace(username) || !path.StartsWith(@"\\")) return false;
+            if (string.IsNullOrWhiteSpace(username) || !path.StartsWith(@"\\")) 
+                return (false, "لم يتم تحديد اسم المستخدم");
+
+            var match = Regex.Match(path, @"^(\\\\[^\\]+\\[^\\]+)");
+            string shareRoot = match.Success ? match.Groups[1].Value : path;
+            var ipMatch = Regex.Match(path, @"^\\\\([^\\]+)");
+            string ipOrHost = ipMatch.Success ? ipMatch.Groups[1].Value : "";
 
             try
             {
-                var match = Regex.Match(path, @"^(\\\\[^\\]+\\[^\\]+)");
-                string shareRoot = match.Success ? match.Groups[1].Value : path;
+                // 1. Try Win32 API WNetAddConnection2
+                var nr = new NETRESOURCE { lpRemoteName = shareRoot };
+                
+                // Clear any prior stale connection to prevent error 1219
+                try { WNetCancelConnection2(shareRoot, 0, true); } catch { }
+
+                int ret = WNetAddConnection2(nr, password, username, 0);
+                if (ret == 0)
+                {
+                    _logger.LogInformation("WNetAddConnection2 succeeded for {Share} with user {User}", shareRoot, username);
+                    return (true, "تم تسجيل الدخول بنجاح عبر بروتوكول ويندوز.");
+                }
+
+                // If error 1326 (logon failure) and username doesn't have a slash, try with machine name prefix
+                if (ret == 1326 && !username.Contains('\\') && !string.IsNullOrEmpty(ipOrHost))
+                {
+                    string machineUser = $"{ipOrHost}\\{username}";
+                    ret = WNetAddConnection2(nr, password, machineUser, 0);
+                    if (ret == 0)
+                    {
+                        return (true, $"تم تسجيل الدخول بنجاح باسم ({machineUser}).");
+                    }
+                }
+
+                // 2. Fallback to 'net use' process
+                try
+                {
+                    var psiDel = new ProcessStartInfo("net", $"use \"{shareRoot}\" /delete /y")
+                    {
+                        CreateNoWindow = true,
+                        UseShellExecute = false
+                    };
+                    using var pDel = Process.Start(psiDel);
+                    if (pDel != null) await pDel.WaitForExitAsync();
+                }
+                catch { }
 
                 var psi = new ProcessStartInfo("net", $"use \"{shareRoot}\" \"{password}\" /user:\"{username}\" /persistent:no")
                 {
@@ -69,15 +129,25 @@ namespace HRSystem.Services
                 using var proc = Process.Start(psi);
                 if (proc != null)
                 {
+                    string err = await proc.StandardError.ReadToEndAsync();
                     await proc.WaitForExitAsync();
-                    return proc.ExitCode == 0;
+                    if (proc.ExitCode == 0)
+                    {
+                        return (true, "تم تسجيل الدخول بنجاح.");
+                    }
+                    if (!string.IsNullOrWhiteSpace(err))
+                    {
+                        return (false, $"فشل تسجيل الدخول ببيانات الاعتماد: {err.Trim()}");
+                    }
                 }
+
+                return (false, $"فشل تسجيل الدخول لجهاز الفرع (كود الخطأ: {ret}). تأكد من صحة اسم المستخدم وكلمة المرور.");
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to authenticate network share {Path}", path);
+                return (false, $"خطأ أثناء تسجيل الدخول: {ex.Message}");
             }
-            return false;
         }
 
         public async Task<ZkDiagnosticResult> DiagnoseConnectionAsync(string rawPath, string? username = null, string? password = null)
@@ -92,12 +162,6 @@ namespace HRSystem.Services
 
             string cleanPath = rawPath.Trim();
             result.TargetPath = cleanPath;
-
-            // Optional Authentication if credentials passed
-            if (!string.IsNullOrWhiteSpace(username))
-            {
-                await AuthenticateNetworkShareAsync(cleanPath, username, password);
-            }
 
             // 1. Check Format (UNC vs Local)
             var stepFormat = new DiagnosticStep { Title = "فحص صيغة المسار" };
@@ -157,7 +221,36 @@ namespace HRSystem.Services
             }
             result.Steps.Add(stepSmb);
 
-            // 4. Check File Existence & Authentication
+            // 4. Windows Authentication (if username/password provided)
+            var stepAuth = new DiagnosticStep { Title = "تسجيل الدخول ومصادقة ويندوز (Windows Authentication)" };
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                var (authSuccess, authMsg) = await AuthenticateNetworkShareAsync(cleanPath, username, password);
+                if (authSuccess)
+                {
+                    stepAuth.Passed = true;
+                    stepAuth.Details = $"تمت المصادقة وتسجيل الدخول لجهاز الفرع بنجاح باستخدام الحساب ({username})!";
+                    result.Steps.Add(stepAuth);
+                }
+                else
+                {
+                    stepAuth.Passed = false;
+                    stepAuth.Details = authMsg;
+                    stepAuth.Recommendation = "تأكد من صحة اسم المستخدم وكلمة المرور الخاصة بويندوز جهاز الفرع.";
+                    result.Steps.Add(stepAuth);
+                    result.Success = false;
+                    result.Summary = "فشل تسجيل الدخول لجهاز الفرع ببيانات الاعتماد المدخلة.";
+                    return result;
+                }
+            }
+            else
+            {
+                stepAuth.Passed = true;
+                stepAuth.Details = "تم الاتصال المباشر (المشاركة العامة بدون باسورد).";
+                result.Steps.Add(stepAuth);
+            }
+
+            // 5. Check File Existence
             var stepFile = new DiagnosticStep { Title = "الوصول لملف قاعدة البيانات (att2000.mdb)" };
             bool fileExists = false;
             string? accessError = null;
@@ -170,7 +263,6 @@ namespace HRSystem.Services
                 }
                 else
                 {
-                    // Attempt directory probe to see exact error
                     var dir = Path.GetDirectoryName(cleanPath);
                     if (!string.IsNullOrEmpty(dir))
                     {
@@ -192,14 +284,11 @@ namespace HRSystem.Services
             else if (!string.IsNullOrEmpty(accessError) && (accessError.Contains("password", StringComparison.OrdinalIgnoreCase) || accessError.Contains("denied", StringComparison.OrdinalIgnoreCase) || accessError.Contains("logon", StringComparison.OrdinalIgnoreCase)))
             {
                 stepFile.Passed = false;
-                stepFile.Details = "تم رفض الوصول للمجلد المشترك: جهاز الفرع يطلب اسم مستخدم وكلمة مرور لويندوز (Password-Protected Sharing) أو صلاحيات المشاركة مقيدة.";
-                stepFile.Recommendation = "الحل الموصى به (لإلغاء طلب الباسورد نهائياً من جهاز الفرع):\n" +
-                                          "1. على جهاز الفرع: افتح Control Panel -> Network and Sharing Center -> Change advanced sharing settings -> ومن أسفل All Networks اختر (Turn off password protected sharing).\n" +
-                                          "2. على مجلد ZKTeco: كليك يمين -> Properties -> Sharing -> Advanced Sharing -> Permissions -> تأكد من إضافة (Everyone) بصلاحية Full Control.\n" +
-                                          "3. أو أدخل اسم مستخدم وكلمة مرور جهاز الفرع في الخانات أدناه لتسجيل الدخول التلقائي.";
+                stepFile.Details = "تم رفض الوصول: جهاز الفرع يطلب اسم مستخدم وكلمة مرور لويندوز (Password-Protected Sharing) أو صلاحيات الحساب غير كافية.";
+                stepFile.Recommendation = "أدخل اسم المستخدم وكلمة المرور لجهاز الفرع في الخانات الظاهرة بالأعلى واضغط (فحص وتشغيل الاتصال).";
                 result.Steps.Add(stepFile);
                 result.Success = false;
-                result.Summary = "تم رفض الوصول: جهاز الفرع يطلب اسم مستخدم وكلمة مرور ويندوز.";
+                result.Summary = "تم رفض الوصول: يرجى كتابة اسم المستخدم وكلمة المرور الخاصة بويندوز جهاز الفرع.";
                 return result;
             }
             else
@@ -212,7 +301,7 @@ namespace HRSystem.Services
                 result.Steps.Add(stepFile);
             }
 
-            // 5. Check OleDb Jet 4.0 Connection
+            // 6. Check OleDb Jet 4.0 Connection
             if (fileExists)
             {
                 var stepDb = new DiagnosticStep { Title = "قراءة بيانات ZKTeco (OLEDB Jet 4.0)" };
