@@ -1,0 +1,465 @@
+@model IEnumerable<HRSystem.Models.Branch>
+@{
+    ViewData["Title"] = "الربط مع برنامج ZKTeco المكتبي";
+}
+
+<div class="container-fluid py-4 px-lg-4">
+    <!-- Header Hero Banner -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden" style="background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);">
+        <div class="card-body p-4 text-white">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="bg-white bg-opacity-20 p-3 rounded-circle text-white shadow-sm">
+                        <i class="fas fa-desktop fa-2x"></i>
+                    </div>
+                    <div>
+                        <h3 class="fw-bold mb-1">الربط مع برنامج ZKTeco المكتبي</h3>
+                        <p class="mb-0 text-white-50">إدارة ومزامنة قواعد بيانات برنامج ZK (ملف att2000.mdb) بالفروع وإرسال الموظفين إليها مباشرة</p>
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-light text-primary rounded-pill px-4 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#directAddUserModal">
+                        <i class="fas fa-user-plus me-1"></i> إضافة موظف لداتابيز ZK
+                    </button>
+                    <a href="#quickDiagnosticSection" class="btn btn-outline-light rounded-pill px-3">
+                        <i class="fas fa-stethoscope me-1"></i> فحص وتشخيص الاتصال
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Guide / Requirements Alert -->
+    <div class="alert alert-info border-0 rounded-4 shadow-sm p-4 mb-4" style="background-color: #ebf8fa; border-right: 5px solid #17a2b8 !important;">
+        <div class="d-flex align-items-start gap-3">
+            <i class="fas fa-info-circle fa-2x text-info mt-1"></i>
+            <div class="flex-grow-1">
+                <h6 class="fw-bold text-dark mb-2">تعليمات الربط مع جهاز الكمبيوتر بالفرع (الخطوات المطلوبة لمرة واحدة):</h6>
+                <div class="row g-3 small text-muted">
+                    <div class="col-md-4">
+                        <div class="p-3 bg-white rounded-3 border">
+                            <span class="badge bg-primary mb-2">الخطوة 1</span>
+                            <div class="fw-bold text-dark">مشاركة مجلد البرنامج</div>
+                            <div>عمل Share لمجلد البرنامج بالفرع: <br><code>C:\Program Files (x86)\ZKTeco</code> بالاسم <b>ZKTeco</b> وإعطاء صلاحية Read/Write.</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-white rounded-3 border">
+                            <span class="badge bg-warning text-dark mb-2">الخطوة 2 (مهمة جداً)</span>
+                            <div class="fw-bold text-dark">فتح منفذ الشير (Port 445) في الفايروول</div>
+                            <div>فتح PowerShell كمسؤول (Run as Admin) على جهاز الفرع وتنفيذ أمر السماح بالشير عبر الشبكة:
+                                <div class="mt-1">
+                                    <code class="user-select-all d-block p-1 bg-light rounded text-danger" style="font-size: 0.72rem;">netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=Yes</code>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-white rounded-3 border">
+                            <span class="badge bg-success mb-2">الخطوة 3</span>
+                            <div class="fw-bold text-dark">كتابة مسار الشبكة الصحيح</div>
+                            <div>يجب كتابة المسار بصيغة شبكة UNC وليس C:\، مثال:<br>
+                                <code class="text-primary fw-bold">\\172.16.9.60\ZKTeco\att2000.mdb</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Diagnostic Tool Card -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4" id="quickDiagnosticSection">
+        <div class="card-header bg-white border-0 pt-4 px-4 pb-0 d-flex justify-content-between align-items-center">
+            <h5 class="fw-bold text-dark mb-0">
+                <i class="fas fa-satellite-dish text-primary me-2"></i> أداة التشخيص والفحص الشامل للاتصال
+            </h5>
+            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">تشخيص فوري للمسار والشبكة والفايروول</span>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <div class="col-lg-9 col-md-8">
+                    <label class="form-label fw-bold small text-muted">مسار قاعدة بيانات ZKTeco المستهدف:</label>
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text bg-light border-end-0 rounded-start-pill text-muted px-3"><i class="fas fa-network-wired"></i></span>
+                        <input type="text" id="diagInputPath" class="form-control border-start-0 rounded-end-pill" placeholder="مثال: \\172.16.9.60\ZKTeco\att2000.mdb" value="\\172.16.9.60\ZKTeco\att2000.mdb" />
+                    </div>
+                </div>
+                <div class="col-lg-3 col-md-4 d-flex align-items-end">
+                    <button type="button" class="btn btn-primary btn-lg rounded-pill w-100 fw-bold shadow-sm" onclick="runDiagnostic()">
+                        <i class="fas fa-play me-1"></i> بدء التشخيص الآن
+                    </button>
+                </div>
+            </div>
+
+            <!-- Diagnostic Results Box (Dynamic) -->
+            <div id="diagResultContainer" class="mt-4" style="display: none;">
+                <hr class="my-4 text-muted opacity-25">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h6 class="fw-bold mb-0" id="diagResultSummary">نتيجة الفحص</h6>
+                    <span id="diagOverallBadge" class="badge rounded-pill px-3 py-2"></span>
+                </div>
+                <div id="diagStepsList" class="row g-3">
+                    <!-- Populated by JavaScript -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Branches ZK Configuration Table -->
+    <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+        <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h5 class="fw-bold text-dark mb-0"><i class="fas fa-list-check text-info me-2"></i> فروع النظام وإعدادات الربط المكتبي</h5>
+                <small class="text-muted">تحديد مسارات قواعد البيانات لكل فرع يعمل به برنامج ZKTeco</small>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 text-center" id="zkBranchesTable">
+                    <thead class="table-light text-muted small">
+                        <tr>
+                            <th class="text-end ps-4">اسم الفرع</th>
+                            <th>كود الفرع</th>
+                            <th>VPN IP</th>
+                            <th>أجهزة البصمة</th>
+                            <th>مسار ZK Access (.mdb)</th>
+                            <th>حالة المسار</th>
+                            <th class="text-center pe-4">الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var b in Model)
+                        {
+                            <tr>
+                                <td class="text-end ps-4 fw-bold text-dark">
+                                    <i class="fas fa-store me-2 text-primary opacity-50"></i>@b.BranchName
+                                </td>
+                                <td><span class="badge bg-light text-dark border">@b.BranchCode</span></td>
+                                <td><code>@(string.IsNullOrEmpty(b.VpnIp) ? "غير محدد" : b.VpnIp)</code></td>
+                                <td>
+                                    <span class="badge bg-info-subtle text-info rounded-pill px-3">
+                                        @(b.FingerDevices?.Count ?? 0) جهاز
+                                    </span>
+                                </td>
+                                <td class="text-start">
+                                    @if (!string.IsNullOrEmpty(b.ZkAccessDbPath))
+                                    {
+                                        <code class="small text-primary fw-bold text-break">@b.ZkAccessDbPath</code>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small fst-italic">غير مفعّل (لا يوجد مسار)</span>
+                                    }
+                                </td>
+                                <td>
+                                    @if (!string.IsNullOrEmpty(b.ZkAccessDbPath))
+                                    {
+                                        <span class="badge bg-success-subtle text-success rounded-pill px-3 py-1">
+                                            <i class="fas fa-check-circle me-1"></i> مكوّن
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-1">
+                                            معطل
+                                        </span>
+                                    }
+                                </td>
+                                <td class="pe-4">
+                                    <div class="d-flex justify-content-center gap-2">
+                                        <button class="btn btn-sm btn-outline-primary rounded-pill px-3" 
+                                                onclick="openEditBranchPathModal(@b.BranchId, '@b.BranchName', '@(b.ZkAccessDbPath ?? "")')">
+                                            <i class="fas fa-edit me-1"></i> ضبط المسار
+                                        </button>
+                                        @if (!string.IsNullOrEmpty(b.ZkAccessDbPath))
+                                        {
+                                            <button class="btn btn-sm btn-outline-info rounded-pill px-3" 
+                                                    onclick="testSpecificPath('@b.ZkAccessDbPath')">
+                                                <i class="fas fa-satellite-dish me-1"></i> فحص
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-success rounded-pill px-3" 
+                                                    onclick="browseZkUsers('@b.ZkAccessDbPath', '@b.BranchName')">
+                                                <i class="fas fa-users-viewfinder me-1"></i> استعراض الموظفين
+                                            </button>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Edit Branch Path -->
+<div class="modal fade" id="editPathModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header bg-primary text-white py-3 px-4">
+                <h5 class="modal-title fw-bold mb-0"><i class="fas fa-folder-open me-2"></i> ضبط مسار قاعدة بيانات ZKTeco للفرع</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <input type="hidden" id="editBranchId">
+                <div class="mb-3">
+                    <label class="form-label text-muted small fw-bold">اسم الفرع:</label>
+                    <input type="text" id="editBranchName" class="form-control form-control-solid fw-bold" readonly>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label text-dark fw-bold d-flex justify-content-between align-items-center">
+                        <span>مسار ملف قاعدة البيانات (att2000.mdb):</span>
+                        <button type="button" class="btn btn-xs btn-outline-info rounded-pill py-0 px-2" onclick="testModalEditPath()">فحص لحظي</button>
+                    </label>
+                    <input type="text" id="editBranchPathInput" class="form-control rounded-3" placeholder="مثال: \\172.16.9.60\ZKTeco\att2000.mdb">
+                    <small class="text-muted d-block mt-2">
+                        اتركه فارغاً إذا كان هذا الفرع لا يمتلك كمبيوتر ببرنامج ZK ولا يحتاج ربط أكسيس.
+                    </small>
+                </div>
+            </div>
+            <div class="modal-footer border-0 p-4 pt-0">
+                <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold" onclick="saveBranchPath()">حفظ التعديل</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Direct Add User to ZK Database -->
+<div class="modal fade" id="directAddUserModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header bg-success text-white py-3 px-4">
+                <h5 class="modal-title fw-bold mb-0"><i class="fas fa-user-plus me-2"></i> إضافة موظف مباشرة لقاعدة بيانات ZKTeco</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="directAddUserForm">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark">اختر الفرع المستهدف:</label>
+                        <select id="directBranchSelect" class="form-select rounded-pill px-3" onchange="onBranchSelectedForUser()">
+                            <option value="">-- اختر فرع --</option>
+                            @foreach (var b in Model)
+                            {
+                                <option value="@b.ZkAccessDbPath" data-devices="@(b.FingerDevices?.FirstOrDefault()?.Ipaddress ?? "")">@b.BranchName @(string.IsNullOrEmpty(b.ZkAccessDbPath) ? "(بدون مسار)" : "")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-dark">مسار ملف الداتابيز (att2000.mdb):</label>
+                        <input type="text" id="directUserPath" class="form-control rounded-3" placeholder="\\172.16.9.60\ZKTeco\att2000.mdb" required>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-5">
+                            <label class="form-label fw-bold text-dark">كود الموظف (Badge):</label>
+                            <input type="text" id="directUserCode" class="form-control rounded-3" placeholder="مثال: 105" required>
+                        </div>
+                        <div class="col-md-7">
+                            <label class="form-label fw-bold text-dark">اسم الموظف:</label>
+                            <input type="text" id="directUserName" class="form-control rounded-3" placeholder="مثال: أحمد محمد علي" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small text-muted">IP ماكينة البصمة (اختياري للربط في UsersMachines):</label>
+                        <input type="text" id="directUserDeviceIp" class="form-control form-control-sm rounded-3" placeholder="مثال: 172.16.9.201">
+                    </div>
+                </div>
+                <div class="modal-footer border-0 p-4 pt-0">
+                    <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
+                    <button type="submit" class="btn btn-success rounded-pill px-4 fw-bold">حفظ وإرسال للملف</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Browse ZK Users -->
+<div class="modal fade" id="browseUsersModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content rounded-4 border-0 shadow-lg">
+            <div class="modal-header bg-info text-white py-3 px-4">
+                <h5 class="modal-title fw-bold mb-0"><i class="fas fa-users me-2"></i> الموظفون المسجلون في ملف ZKTeco (<span id="browseBranchTitle"></span>)</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="input-group mb-3">
+                    <input type="text" id="searchZkUserInput" class="form-control rounded-start-pill" placeholder="بحث بالاسم أو الكود...">
+                    <button class="btn btn-info text-white rounded-end-pill px-4" type="button" onclick="refreshZkUsersList()">بحث</button>
+                </div>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-sm table-striped text-center align-middle" id="zkUsersTable">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th>#</th>
+                                <th>كود الموظف (Badge)</th>
+                                <th>الاسم</th>
+                                <th>رقم الكارت</th>
+                            </tr>
+                        </thead>
+                        <tbody id="zkUsersTableBody">
+                            <tr><td colspan="4" class="py-4 text-muted">جاري تحميل البيانات...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@@11"></script>
+    <script>
+        let currentBrowsePath = '';
+
+        function runDiagnostic(pathOverride) {
+            const path = pathOverride || $('#diagInputPath').val();
+            if (!path) {
+                Swal.fire('تنبيه', 'يرجى كتابة المسار أولاً', 'warning');
+                return;
+            }
+
+            $('#diagResultContainer').slideDown();
+            $('#diagResultSummary').html('<i class="fas fa-spinner fa-spin text-primary me-2"></i> جاري فحص الاتصال بكافة المراحل...');
+            $('#diagOverallBadge').removeClass('bg-success bg-danger').addClass('bg-secondary').text('جاري الفحص');
+            $('#diagStepsList').html('<div class="col-12 text-center py-4"><i class="fas fa-circle-notch fa-spin fa-2x text-primary"></i><div class="mt-2 text-muted small">فحص الشبكة والمنفذ 445 وملف الأكسيس...</div></div>');
+
+            $.post('/ZkSync/Diagnose', { path: path }, function(res) {
+                if (res.success) {
+                    $('#diagOverallBadge').removeClass('bg-secondary bg-danger').addClass('bg-success').text('الاتصال سليم 100%');
+                } else {
+                    $('#diagOverallBadge').removeClass('bg-secondary bg-success').addClass('bg-danger').text('يوجد مشكلة بالاتصال');
+                }
+                $('#diagResultSummary').text(res.summary);
+
+                let html = '';
+                if (res.steps && res.steps.length > 0) {
+                    res.steps.forEach(function(s) {
+                        const icon = s.passed ? 'fa-check-circle text-success' : 'fa-times-circle text-danger';
+                        const border = s.passed ? 'border-success-subtle bg-white' : 'border-danger-subtle bg-danger-subtle bg-opacity-10';
+                        
+                        html += `
+                        <div class="col-md-6">
+                            <div class="p-3 rounded-4 border ${border} h-100 shadow-sm">
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <i class="fas ${icon} fa-lg"></i>
+                                    <h6 class="fw-bold mb-0 text-dark">${s.title}</h6>
+                                </div>
+                                <div class="small text-muted mb-2" style="white-space: pre-line;">${s.details}</div>
+                                ${s.recommendation ? `
+                                    <div class="p-2 rounded bg-light border border-warning-subtle text-dark small" style="white-space: pre-line;">
+                                        <b class="text-danger"><i class="fas fa-wrench me-1"></i> الحل المقترح:</b><br>${s.recommendation}
+                                    </div>
+                                ` : ''}
+                            </div>
+                        </div>`;
+                    });
+                }
+                $('#diagStepsList').html(html);
+            }).fail(function() {
+                $('#diagOverallBadge').removeClass('bg-secondary bg-success').addClass('bg-danger').text('فشل الطلب');
+                $('#diagResultSummary').text('حدث خطأ أثناء الاتصال بالخادم.');
+                $('#diagStepsList').html('<div class="col-12 text-center text-danger py-3">فشل إكمال الفحص من السيرفر.</div>');
+            });
+        }
+
+        function testSpecificPath(path) {
+            $('#diagInputPath').val(path);
+            $('html, body').animate({ scrollTop: $('#quickDiagnosticSection').offset().top - 100 }, 500);
+            runDiagnostic(path);
+        }
+
+        function openEditBranchPathModal(id, name, path) {
+            $('#editBranchId').val(id);
+            $('#editBranchName').val(name);
+            $('#editBranchPathInput').val(path);
+            new bootstrap.Modal(document.getElementById('editPathModal')).show();
+        }
+
+        function testModalEditPath() {
+            const path = $('#editBranchPathInput').val();
+            if (!path) {
+                Swal.fire('تنبيه', 'يرجى إدخال مسار أولاً', 'warning');
+                return;
+            }
+            testSpecificPath(path);
+            $('#editPathModal').modal('hide');
+        }
+
+        function saveBranchPath() {
+            const id = $('#editBranchId').val();
+            const path = $('#editBranchPathInput').val();
+
+            Swal.fire({ title: 'جاري الحفظ...', didOpen: () => Swal.showLoading() });
+            $.post('/ZkSync/SaveBranchPath', { branchId: id, path: path }, function(res) {
+                if (res.success) {
+                    Swal.fire('تم الحفظ!', res.message, 'success').then(() => location.reload());
+                } else {
+                    Swal.fire('خطأ', res.message, 'error');
+                }
+            });
+        }
+
+        function onBranchSelectedForUser() {
+            const selectedOpt = $('#directBranchSelect option:selected');
+            const path = selectedOpt.val();
+            const devIp = selectedOpt.data('devices');
+            if (path) $('#directUserPath').val(path);
+            if (devIp) $('#directUserDeviceIp').val(devIp);
+        }
+
+        $('#directAddUserForm').submit(function(e) {
+            e.preventDefault();
+            Swal.fire({ title: 'جاري إرسال الموظف لداتابيز ZK...', didOpen: () => Swal.showLoading() });
+            $.post('/ZkSync/AddUserDirect', {
+                path: $('#directUserPath').val(),
+                userCode: $('#directUserCode').val(),
+                userName: $('#directUserName').val(),
+                deviceIp: $('#directUserDeviceIp').val()
+            }, function(res) {
+                Swal.fire({
+                    icon: res.success ? 'success' : 'error',
+                    title: res.success ? 'نجاح' : 'فشل',
+                    text: res.message
+                });
+                if (res.success) {
+                    $('#directAddUserModal').modal('hide');
+                    $('#directUserCode').val('');
+                    $('#directUserName').val('');
+                }
+            });
+        });
+
+        function browseZkUsers(path, branchName) {
+            currentBrowsePath = path;
+            $('#browseBranchTitle').text(branchName);
+            $('#searchZkUserInput').val('');
+            new bootstrap.Modal(document.getElementById('browseUsersModal')).show();
+            refreshZkUsersList();
+        }
+
+        function refreshZkUsersList() {
+            const search = $('#searchZkUserInput').val();
+            $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i> جاري القراءة من att2000.mdb...</td></tr>');
+            $.get('/ZkSync/GetZkUsers', { path: currentBrowsePath, search: search }, function(res) {
+                if (res.success && res.users && res.users.length > 0) {
+                    let rows = '';
+                    res.users.forEach((u, i) => {
+                        rows += `<tr>
+                            <td>${i + 1}</td>
+                            <td><span class="badge bg-primary-subtle text-primary">${u.badgeNumber}</span></td>
+                            <td class="fw-bold">${u.name}</td>
+                            <td>${u.cardNo || '-'}</td>
+                        </tr>`;
+                    });
+                    $('#zkUsersTableBody').html(rows);
+                } else {
+                    $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-muted">لا يوجد موظفون مسجلون أو لم يتم العثور على نتائج.</td></tr>');
+                }
+            }).fail(function() {
+                $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-danger">فشل قراءة الملف عبر الشبكة.</td></tr>');
+            });
+        }
+    </script>
+}

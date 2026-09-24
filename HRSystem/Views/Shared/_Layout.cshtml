@@ -193,6 +193,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link @(ViewContext.RouteData.Values["Controller"]?.ToString() == "ZkSync" ? "active" : "")" asp-controller="ZkSync" asp-action="Index">
+                                <i class="fas fa-desktop"></i> <span>ربط ZKTeco</span>
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link @(ViewContext.RouteData.Values["Action"]?.ToString() == "ManageNames" ? "active" : "")" asp-controller="Fingerprint" asp-action="ManageNames">
                                 <i class="fas fa-id-card-clip"></i> <span>أسماء البصمة</span>
                             </a>
