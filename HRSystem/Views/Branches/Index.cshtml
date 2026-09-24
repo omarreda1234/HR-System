@@ -113,7 +113,8 @@
                                                 data-code="@item.BranchCode" 
                                                 data-city="@item.City" 
                                                 data-vpnip="@item.VpnIp" 
-                                                data-isactive="@(item.IsActive == true ? "true" : "false")">
+                                                data-isactive="@(item.IsActive == true ? "true" : "false")"
+                                                data-zkaccessdbpath="@item.ZkAccessDbPath">
                                             <i class="fas fa-edit me-1"></i> تعديل
                                         </button>
                                         <button class="btn btn-sm btn-outline-danger rounded-pill px-3 btn-delete-branch" 
@@ -158,6 +159,14 @@
                         <label class="form-label font-weight-bold">المدينة</label>
                         <input type="text" class="form-control" name="City" placeholder="مثال: المنصورة">
                     </div>
+                    <div class="mb-3">
+                        <label class="form-label font-weight-bold d-flex justify-content-between">
+                            <span><i class="fas fa-database text-primary me-1"></i> مسار قاعدة بيانات ZK Access (.mdb) <small class="text-muted fw-normal">(اختياري)</small></span>
+                            <button type="button" class="btn btn-xs btn-outline-info rounded-pill py-0 px-2" onclick="testAccessDbInput('#addBranchZkAccessDbPath')">فحص المسار</button>
+                        </label>
+                        <input type="text" class="form-control" name="ZkAccessDbPath" id="addBranchZkAccessDbPath" placeholder="مثال: \\172.16.9.60\ZKTeco\att2000.mdb">
+                        <small class="text-muted d-block mt-1">يُكتب للفروع التي يعمل بها برنامج ZKTeco المكتبي للربط التلقائي.</small>
+                    </div>
                 </div>
                 <div class="modal-footer bg-light border-0">
                     <button type="button" class="btn btn-secondary rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
@@ -196,6 +205,14 @@
                         <input type="text" class="form-control" name="City" id="editBranchCity">
                     </div>
                     <div class="mb-3">
+                        <label class="form-label font-weight-bold d-flex justify-content-between">
+                            <span><i class="fas fa-database text-primary me-1"></i> مسار قاعدة بيانات ZK Access (.mdb) <small class="text-muted fw-normal">(اختياري)</small></span>
+                            <button type="button" class="btn btn-xs btn-outline-info rounded-pill py-0 px-2" onclick="testAccessDbInput('#editBranchZkAccessDbPath')">فحص المسار</button>
+                        </label>
+                        <input type="text" class="form-control" name="ZkAccessDbPath" id="editBranchZkAccessDbPath" placeholder="مثال: \\172.16.9.60\ZKTeco\att2000.mdb">
+                        <small class="text-muted d-block mt-1">يُكتب للفروع التي يعمل بها برنامج ZKTeco المكتبي للربط التلقائي.</small>
+                    </div>
+                    <div class="mb-3">
                         <label class="form-label font-weight-bold">الحالة</label>
                         <select class="form-select form-control" name="IsActive" id="editBranchIsActive">
                             <option value="true">نشط</option>
@@ -217,6 +234,22 @@
     <script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@@11"></script>
     <script>
+        function testAccessDbInput(selector) {
+            const path = $(selector).val();
+            if (!path) {
+                Swal.fire('تنبيه', 'يرجى إدخال مسار قاعدة بيانات ZKTeco أولاً', 'warning');
+                return;
+            }
+            Swal.fire({ title: 'جاري فحص الاتصال بملف الأكسيس...', didOpen: () => { Swal.showLoading(); } });
+            $.post('/Branches/TestZkAccessDb', { path: path }, function(res) {
+                Swal.fire({
+                    icon: res.success ? 'success' : 'error',
+                    title: res.success ? 'الاتصال سليم' : 'فشل الوصول للملف',
+                    html: '<div style="white-space: pre-line; text-align: right; direction: rtl;">' + res.message + '</div>'
+                });
+            });
+        }
+
         $(document).ready(function() {
             const table = $('#branchesTable').DataTable({
                 "language": { "url": "//cdn.datatables.net/plug-ins/1.13.6/i18n/ar.json" },
@@ -231,6 +264,7 @@
                 const city = $(this).data('city');
                 const vpnip = $(this).data('vpnip');
                 const isactive = $(this).data('isactive').toString();
+                const zkaccessdbpath = $(this).data('zkaccessdbpath') || '';
 
                 $('#editBranchId').val(id);
                 $('#editBranchName').val(name);
@@ -238,6 +272,7 @@
                 $('#editBranchCity').val(city);
                 $('#editBranchVpnIp').val(vpnip);
                 $('#editBranchIsActive').val(isactive);
+                $('#editBranchZkAccessDbPath').val(zkaccessdbpath);
 
                 const modal = new bootstrap.Modal(document.getElementById('editBranchModal'));
                 modal.show();

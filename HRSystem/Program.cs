@@ -16,6 +16,7 @@ builder.Services.AddDbContext<HRContext>(options =>
 builder.Services.AddHttpClient<HRSystem.Services.WhatsAppService>();
 builder.Services.AddScoped<HRSystem.Services.LeaveService>();
 builder.Services.AddScoped<HRSystem.Services.PayrollService>();
+builder.Services.AddScoped<HRSystem.Services.ZkAccessDbService>();
 
 
 builder.Services.AddDataProtection()

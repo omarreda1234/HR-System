@@ -18,6 +18,8 @@ public partial class Branch
     public bool? IsActive { get; set; }
 
     public string VpnIp { get; set; }
+    
+    public string ZkAccessDbPath { get; set; }
 
     public virtual ICollection<Employee> Employees { get; set; } = new List<Employee>();
 

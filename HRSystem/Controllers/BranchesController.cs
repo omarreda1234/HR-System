@@ -16,11 +16,13 @@ namespace HRSystem.Controllers
     {
         private readonly HRContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly HRSystem.Services.ZkAccessDbService _zkAccessService;
 
-        public BranchesController(HRContext context, UserManager<ApplicationUser> userManager)
+        public BranchesController(HRContext context, UserManager<ApplicationUser> userManager, HRSystem.Services.ZkAccessDbService zkAccessService)
         {
             _context = context;
             _userManager = userManager;
+            _zkAccessService = zkAccessService;
         }
 
         private async Task<bool> CheckDeviceAccess(int deviceId)
@@ -520,8 +522,40 @@ namespace HRSystem.Controllers
                 syncLock.Release();
             }
         }
+        [HttpGet]
+        public async Task<IActionResult> GetDeviceZkInfo(int id)
+        {
+            var device = await _context.FingerDevices.Include(d => d.Branch).FirstOrDefaultAsync(d => d.DeviceId == id);
+            if (device == null) return Json(new { success = false, message = "الجهاز غير موجود" });
+
+            string path = !string.IsNullOrWhiteSpace(device.AccessDbPath) 
+                ? device.AccessDbPath 
+                : (device.Branch?.ZkAccessDbPath ?? "");
+
+            return Json(new { 
+                success = true, 
+                deviceId = device.DeviceId,
+                deviceName = device.DeviceName,
+                branchName = device.Branch?.BranchName ?? "بدون فرع",
+                accessDbPath = path
+            });
+        }
+
         [HttpPost]
-        public async Task<IActionResult> AddUserToDevice(int deviceId, string userCode, string userName)
+        public async Task<IActionResult> TestZkAccessDb(string path)
+        {
+            var (success, message) = await _zkAccessService.TestConnectionAsync(path);
+            return Json(new { success, message });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AddUserToDevice(
+            int deviceId, 
+            string userCode, 
+            string userName, 
+            bool sendToDevice = true, 
+            bool sendToAccessDb = false, 
+            string? customAccessPath = null)
         {
             if (!await CheckDeviceAccess(deviceId)) return Json(new { success = false, message = "Access Denied." });
 
@@ -530,45 +564,93 @@ namespace HRSystem.Controllers
                 return Json(new { success = false, message = "كود المستخدم واسمه مطلوبان." });
             }
 
-            var deviceRecord = await _context.FingerDevices.FindAsync(deviceId);
+            var deviceRecord = await _context.FingerDevices.Include(d => d.Branch).FirstOrDefaultAsync(d => d.DeviceId == deviceId);
             if (deviceRecord == null || string.IsNullOrEmpty(deviceRecord.Ipaddress))
             {
                 return Json(new { success = false, message = "الجهاز غير موجود." });
             }
 
-            int port = deviceRecord.Port ?? 4370;
-            try
+            if (!sendToDevice && !sendToAccessDb)
             {
-                CZKEM device = new CZKEM();
-                if (device.Connect_Net(deviceRecord.Ipaddress, port))
-                {
-                    // تحويل الاسم ليدعم اللغة العربية على أجهزة ZKTeco
-                    string encodedName = EncodeForZKTeco(userName);
+                return Json(new { success = false, message = "يرجى تحديد وجهة واحدة على الأقل (ماكينة البصمة أو داتابيز ZK)." });
+            }
 
-                    // SSR_SetUserInfo: 1 (MachineNumber), UserCode, Name, Password (empty), Privilege (0 - User), IsEnabled (true)
-                    if (device.SSR_SetUserInfo(1, userCode, encodedName, "", 0, true))
+            var resultMessages = new List<string>();
+            bool overallSuccess = false;
+
+            // 1. إرسال إلى ماكينة البصمة مباشرة عبر الـ SDK
+            if (sendToDevice)
+            {
+                int port = deviceRecord.Port ?? 4370;
+                try
+                {
+                    CZKEM device = new CZKEM();
+                    if (device.Connect_Net(deviceRecord.Ipaddress, port))
                     {
-                        device.RefreshData(1); // هام جداً لتحديث بيانات الجهاز فوراً
-                        device.Disconnect();
-                        return Json(new { success = true, message = $"تم إضافة المستخدم '{userName}' بنجاح للجهاز." });
+                        string encodedName = EncodeForZKTeco(userName);
+                        if (device.SSR_SetUserInfo(1, userCode, encodedName, "", 0, true))
+                        {
+                            device.RefreshData(1);
+                            device.Disconnect();
+                            resultMessages.Add($"✔️ ماكينة البصمة ({deviceRecord.DeviceName}): تم إرسال الموظف بنجاح.");
+                            overallSuccess = true;
+                        }
+                        else
+                        {
+                            int errorCode = 0;
+                            device.GetLastError(ref errorCode);
+                            device.Disconnect();
+                            resultMessages.Add($"❌ ماكينة البصمة ({deviceRecord.DeviceName}): فشل، كود الخطأ {errorCode}.");
+                        }
                     }
                     else
                     {
-                        int errorCode = 0;
-                        device.GetLastError(ref errorCode);
-                        device.Disconnect();
-                        return Json(new { success = false, message = "فشل إضافة المستخدم. كود الخطأ: " + errorCode });
+                        resultMessages.Add($"❌ ماكينة البصمة ({deviceRecord.DeviceName}): تعذر الاتصال على بورت {port}.");
                     }
+                }
+                catch (Exception ex)
+                {
+                    resultMessages.Add($"❌ ماكينة البصمة ({deviceRecord.DeviceName}): {ex.Message}");
+                }
+            }
+
+            // 2. إضافة إلى قاعدة بيانات برنامج ZKTeco (Access DB - att2000.mdb)
+            if (sendToAccessDb)
+            {
+                string? targetMdbPath = !string.IsNullOrWhiteSpace(customAccessPath)
+                    ? customAccessPath
+                    : (!string.IsNullOrWhiteSpace(deviceRecord.AccessDbPath) 
+                        ? deviceRecord.AccessDbPath 
+                        : deviceRecord.Branch?.ZkAccessDbPath);
+
+                if (string.IsNullOrWhiteSpace(targetMdbPath))
+                {
+                    resultMessages.Add("⚠️ داتابيز ZKTeco (Access): لم يتم تحديد مسار قاعدة بيانات الفرع (att2000.mdb).");
                 }
                 else
                 {
-                    return Json(new { success = false, message = "لم يتم الاتصال بالجهاز على بورت " + port });
+                    var (accSuccess, accMsg) = await _zkAccessService.AddOrUpdateUserInAccessDbAsync(
+                        targetMdbPath, 
+                        userCode, 
+                        userName, 
+                        deviceRecord.Ipaddress);
+
+                    if (accSuccess)
+                    {
+                        resultMessages.Add($"✔️ داتابيز ZKTeco (Access): تم حفظ الموظف بنجاح.");
+                        overallSuccess = true;
+                    }
+                    else
+                    {
+                        resultMessages.Add($"❌ داتابيز ZKTeco (Access): {accMsg}");
+                    }
                 }
             }
-            catch (Exception ex)
-            {
-                return Json(new { success = false, message = "Error: " + ex.Message });
-            }
+
+            return Json(new { 
+                success = overallSuccess, 
+                message = string.Join("\n", resultMessages) 
+            });
         }
 
         private static bool IsTcpPortOpen(string host, int port, int timeoutMs = 1200)
@@ -1024,6 +1106,7 @@ namespace HRSystem.Controllers
                 existingBranch.City = branch.City;
                 existingBranch.VpnIp = branch.VpnIp;
                 existingBranch.IsActive = branch.IsActive;
+                existingBranch.ZkAccessDbPath = branch.ZkAccessDbPath;
 
                 _context.Update(existingBranch);
                 await _context.SaveChangesAsync();

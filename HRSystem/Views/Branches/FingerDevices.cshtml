@@ -241,6 +241,7 @@
                                                     data-serial-number="@item.SerialNumber"
                                                     data-is-active="@item.IsActive"
                                                     data-last-sync-time="@(item.LastSyncTime?.ToString("o"))"
+                                                    data-access-db-path="@item.AccessDbPath"
                                                     onclick="initEditDevice(this)" 
                                                     title="تعديل الجهاز">
                                                 <i class="fas fa-edit"></i>
@@ -302,6 +303,13 @@
                                 }
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold d-flex justify-content-between">
+                                <span><i class="fas fa-database text-primary me-1"></i> مسار قاعدة بيانات ZK Access (.mdb) <small class="text-muted fw-normal">(اختياري)</small></span>
+                            </label>
+                            <input name="AccessDbPath" class="form-control rounded-pill px-3" placeholder="مثال: \\172.16.9.60\ZKTeco\att2000.mdb" />
+                            <small class="text-muted d-block mt-1">يُكتب فقط للفروع التي تستخدم برنامج ZKTeco المكتبي للربط المباشر مع قاعدة بياناته.</small>
+                        </div>
                     </div>
                     <div class="modal-footer border-0 p-4">
                         <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
@@ -312,7 +320,7 @@
         </div>
     </div>
 
-    <!-- Modal: Edit Device (Updated with Premium Style) -->
+    <!-- Modal: Edit Device (Updated with Premium Style & ZK Access Path) -->
     <div class="modal fade" id="editDeviceModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
@@ -350,6 +358,14 @@
                                 }
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold d-flex justify-content-between">
+                                <span><i class="fas fa-database text-primary me-1"></i> مسار قاعدة بيانات ZK Access (.mdb) <small class="text-muted fw-normal">(اختياري)</small></span>
+                                <button type="button" class="btn btn-xs btn-outline-info rounded-pill py-0 px-2" onclick="testAccessDbInput('#editAccessDbPath')">فحص المسار</button>
+                            </label>
+                            <input name="AccessDbPath" id="editAccessDbPath" class="form-control rounded-pill px-3" placeholder="مثال: \\172.16.9.60\ZKTeco\att2000.mdb" />
+                            <small class="text-muted d-block mt-1">يُكتب فقط للفروع التي تستخدم برنامج ZKTeco المكتبي للربط المباشر مع قاعدة بياناته.</small>
+                        </div>
                     </div>
                     <div class="modal-footer border-0 p-4">
                         <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
@@ -360,29 +376,65 @@
         </div>
     </div>
 
-    <!-- Modal: Add User (Updated with Premium Style) -->
+    <!-- Modal: Add User (Updated with Premium Style & ZK Access DB Integration) -->
     <div class="modal fade" id="addUserModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
-                <div class="modal-header bg-success text-white" style="border-radius: 20px 20px 0 0;">
-                    <h5 class="modal-title fw-bold"><i class="fas fa-user-plus me-2"></i> إرسال موظف للجهاز</h5>
+                <div class="modal-header bg-gradient text-white" style="background: linear-gradient(135deg, #1cc88a 0%, #13855c 100%); border-radius: 20px 20px 0 0;">
+                    <h5 class="modal-title fw-bold"><i class="fas fa-user-plus me-2"></i> إضافة موظف (ماكينة البصمة / داتابيز ZK)</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="addUserForm">
                     <input type="hidden" id="targetDeviceId" />
                     <div class="modal-body p-4">
+                        <div class="alert alert-info py-2 px-3 small rounded-3 mb-3 d-flex align-items-center">
+                            <i class="fas fa-info-circle me-2 fs-5"></i>
+                            <div>الجهاز المحدد: <strong id="modalDeviceTitle">...</strong></div>
+                        </div>
+
                         <div class="mb-3">
-                            <label class="form-label fw-bold">كود الموظف (PIN)</label>
-                            <input type="text" id="userCode" class="form-control rounded-pill px-3" required />
+                            <label class="form-label fw-bold">كود الموظف (PIN / Badge)</label>
+                            <input type="text" id="userCode" class="form-control rounded-pill px-3" placeholder="مثال: 6276" required />
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-bold">الاسم</label>
-                            <input type="text" id="userName" class="form-control rounded-pill px-3" required />
+                            <label class="form-label fw-bold">اسم الموظف</label>
+                            <input type="text" id="userName" class="form-control rounded-pill px-3" placeholder="اسم الموظف بالعربية" required />
+                        </div>
+
+                        <!-- خيارات الإرسال والوجهة -->
+                        <div class="card bg-light border-0 rounded-3 p-3 mb-2 shadow-sm">
+                            <label class="form-label fw-bold mb-2 text-dark"><i class="fas fa-share-alt me-1 text-primary"></i> وجهات إضافة الموظف:</label>
+                            
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" id="sendToDeviceCheck" checked>
+                                <label class="form-check-label fw-bold text-dark" for="sendToDeviceCheck">
+                                    <i class="fas fa-microchip text-primary me-1"></i> إرسال إلى ماكينة البصمة الفيزيائية
+                                </label>
+                            </div>
+
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="sendToAccessDbCheck" onchange="toggleAccessDbInput()">
+                                <label class="form-check-label fw-bold text-dark" for="sendToAccessDbCheck">
+                                    <i class="fas fa-database text-warning me-1"></i> إضافة إلى داتابيز برنامج ZKTeco (Access .mdb)
+                                </label>
+                            </div>
+
+                            <!-- مسار الداتابيز للفرع -->
+                            <div id="accessDbPathContainer" class="mt-3 pt-2 border-top" style="display: none;">
+                                <label class="form-label fw-bold smaller d-flex justify-content-between mb-1">
+                                    <span>مسار ملف الداتابيز بالفرع (att2000.mdb):</span>
+                                    <button type="button" class="btn btn-link p-0 text-info smaller text-decoration-none fw-bold" onclick="testModalAccessDb()">
+                                        <i class="fas fa-satellite-dish me-1"></i> فحص الاتصال بالملف
+                                    </button>
+                                </label>
+                                <input type="text" id="modalAccessDbPath" class="form-control form-control-sm rounded-pill px-3" placeholder="مثال: \\172.16.9.60\ZKTeco\att2000.mdb" />
+                                <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">يمكنك تعديل المسار أو اختباره فوراً قبل الحفظ.</small>
+                            </div>
                         </div>
                     </div>
                     <div class="modal-footer border-0 p-4">
                         <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
-                        <button type="submit" class="btn btn-success rounded-pill px-4">إرسال الآن</button>
+                        <button type="submit" class="btn btn-success rounded-pill px-4"><i class="fas fa-paper-plane me-1"></i> حفظ وإرسال الآن</button>
                     </div>
                 </form>
             </div>
@@ -590,9 +642,58 @@
             });
         }
 
+        function toggleAccessDbInput() {
+            if ($('#sendToAccessDbCheck').is(':checked')) {
+                $('#accessDbPathContainer').slideDown(200);
+            } else {
+                $('#accessDbPathContainer').slideUp(200);
+            }
+        }
+
         function openAddUser(id) {
             $('#targetDeviceId').val(id);
+            $('#userCode').val('');
+            $('#userName').val('');
+            $('#modalDeviceTitle').text('جاري التحميل...');
+            $('#modalAccessDbPath').val('');
+            $('#sendToDeviceCheck').prop('checked', true);
+            $('#sendToAccessDbCheck').prop('checked', false);
+            $('#accessDbPathContainer').hide();
+
+            $.get('/Branches/GetDeviceZkInfo', { id: id }, function(res) {
+                if (res.success) {
+                    $('#modalDeviceTitle').text(res.deviceName + ' - ' + res.branchName);
+                    if (res.accessDbPath) {
+                        $('#modalAccessDbPath').val(res.accessDbPath);
+                        $('#sendToAccessDbCheck').prop('checked', true);
+                        $('#accessDbPathContainer').show();
+                    }
+                } else {
+                    $('#modalDeviceTitle').text('جهاز رقم ' + id);
+                }
+            });
+
             $('#addUserModal').modal('show');
+        }
+
+        function testModalAccessDb() {
+            testAccessDbInput('#modalAccessDbPath');
+        }
+
+        function testAccessDbInput(selector) {
+            const path = $(selector).val();
+            if (!path) {
+                Swal.fire('تنبيه', 'يرجى إدخال مسار قاعدة بيانات ZKTeco أولاً', 'warning');
+                return;
+            }
+            Swal.fire({ title: 'جاري فحص الاتصال بملف الأكسيس...', didOpen: () => { Swal.showLoading(); } });
+            $.post('/Branches/TestZkAccessDb', { path: path }, function(res) {
+                Swal.fire({
+                    icon: res.success ? 'success' : 'error',
+                    title: res.success ? 'الاتصال سليم' : 'فشل الوصول للملف',
+                    html: '<div style="white-space: pre-line; text-align: right; direction: rtl;">' + res.message + '</div>'
+                });
+            });
         }
 
         function initEditDevice(btn) {
@@ -604,6 +705,7 @@
             $('#editBranchId').val($btn.data('branch-id'));
             $('#editSerialNumber').val($btn.data('serial-number'));
             $('#editIsActive').val($btn.data('is-active'));
+            $('#editAccessDbPath').val($btn.data('access-db-path') || '');
             
             const lastSync = $btn.data('last-sync-time');
             $('#editLastSyncTime').val(lastSync ? lastSync : '');
@@ -613,13 +715,20 @@
 
         $('#addUserForm').submit(function(e) {
             e.preventDefault();
-            Swal.fire({ title: 'جاري الإرسال...', didOpen: () => { Swal.showLoading(); } });
+            Swal.fire({ title: 'جاري تنفيذ العملية...', didOpen: () => { Swal.showLoading(); } });
             $.post('/Branches/AddUserToDevice', {
                 deviceId: $('#targetDeviceId').val(),
                 userCode: $('#userCode').val(),
-                userName: $('#userName').val()
+                userName: $('#userName').val(),
+                sendToDevice: $('#sendToDeviceCheck').is(':checked'),
+                sendToAccessDb: $('#sendToAccessDbCheck').is(':checked'),
+                customAccessPath: $('#modalAccessDbPath').val()
             }, function(res) {
-                Swal.fire({ icon: res.success ? 'success' : 'error', title: res.success ? 'نجاح' : 'فشل', text: res.message });
+                Swal.fire({ 
+                    icon: res.success ? 'success' : 'error', 
+                    title: res.success ? 'النتيجة' : 'تنبيه', 
+                    html: '<div style="white-space: pre-line; text-align: right; direction: rtl;">' + res.message + '</div>' 
+                });
                 if(res.success) $('#addUserModal').modal('hide');
             });
         });

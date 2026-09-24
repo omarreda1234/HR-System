@@ -22,6 +22,8 @@ public partial class FingerDevice
     public bool? IsActive { get; set; }
 
     public DateTime? LastSyncTime { get; set; }
+    
+    public string AccessDbPath { get; set; }
 
     public virtual ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
 
