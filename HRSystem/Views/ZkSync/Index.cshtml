@@ -37,29 +37,30 @@
                 <h6 class="fw-bold text-dark mb-2">تعليمات الربط مع جهاز الكمبيوتر بالفرع (الخطوات المطلوبة لمرة واحدة):</h6>
                 <div class="row g-3 small text-muted">
                     <div class="col-md-4">
-                        <div class="p-3 bg-white rounded-3 border">
+                        <div class="p-3 bg-white rounded-3 border h-100">
                             <span class="badge bg-primary mb-2">الخطوة 1</span>
-                            <div class="fw-bold text-dark">مشاركة مجلد البرنامج</div>
-                            <div>عمل Share لمجلد البرنامج بالفرع: <br><code>C:\Program Files (x86)\ZKTeco</code> بالاسم <b>ZKTeco</b> وإعطاء صلاحية Read/Write.</div>
+                            <div class="fw-bold text-dark mb-1">مشاركة مجلد البرنامج وإعطاء الصلاحيات</div>
+                            <div>كليك يمين على مجلد <code>C:\Program Files (x86)\ZKTeco</code> بالفرع -> <b>Properties</b> -> <b>Sharing</b> -> <b>Advanced Sharing</b> -> تأكد من تفعيل الشير بالاسم <b>ZKTeco</b>، ومن زر <b>Permissions</b> أضف <b>Everyone</b> بصلاحية Full Control. وأيضاً من تبويب <b>Security</b> أضف Everyone.</div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-white rounded-3 border">
-                            <span class="badge bg-warning text-dark mb-2">الخطوة 2 (مهمة جداً)</span>
-                            <div class="fw-bold text-dark">فتح منفذ الشير (Port 445) في الفايروول</div>
-                            <div>فتح PowerShell كمسؤول (Run as Admin) على جهاز الفرع وتنفيذ أمر السماح بالشير عبر الشبكة:
+                        <div class="p-3 bg-white rounded-3 border h-100">
+                            <span class="badge bg-success mb-2">الخطوة 2 (تمت بنجاح)</span>
+                            <div class="fw-bold text-dark mb-1">فتح منفذ الشير (Port 445) في الفايروول</div>
+                            <div>فتح منفذ 445 في جدار الحماية (Firewall) بجهاز الفرع للسماح للشير:
                                 <div class="mt-1">
-                                    <code class="user-select-all d-block p-1 bg-light rounded text-danger" style="font-size: 0.72rem;">netsh advfirewall firewall set rule group="File and Printer Sharing" new enable=Yes</code>
+                                    <code class="user-select-all d-block p-1 bg-light rounded text-success" style="font-size: 0.72rem;">netsh advfirewall firewall add rule name="SMB_Share_445" dir=in action=allow protocol=TCP localport=445</code>
                                 </div>
                             </div>
                         </div>
                     </div>
                     <div class="col-md-4">
-                        <div class="p-3 bg-white rounded-3 border">
-                            <span class="badge bg-success mb-2">الخطوة 3</span>
-                            <div class="fw-bold text-dark">كتابة مسار الشبكة الصحيح</div>
-                            <div>يجب كتابة المسار بصيغة شبكة UNC وليس C:\، مثال:<br>
-                                <code class="text-primary fw-bold">\\172.16.9.60\ZKTeco\att2000.mdb</code>
+                        <div class="p-3 bg-white rounded-3 border h-100">
+                            <span class="badge bg-warning text-dark mb-2">الخطوة 3 (مهمة لمنع Access Denied)</span>
+                            <div class="fw-bold text-dark mb-1">إلغاء المشاركة المحمية بكلمة مرور</div>
+                            <div>على جهاز الفرع: افتح <b>Control Panel</b> -> <b>Network and Sharing Center</b> -> <b>Change advanced sharing settings</b> -> انزل لأسفل عند All Networks واختر:
+                                <div class="text-danger fw-bold mt-1">🔘 Turn off password protected sharing</div>
+                                <div>أو يمكنك ببساطة إدخال يوزر وباسورد ويندوز جهاز الفرع في السيستم.</div>
                             </div>
                         </div>
                     </div>
@@ -74,7 +75,7 @@
             <h5 class="fw-bold text-dark mb-0">
                 <i class="fas fa-satellite-dish text-primary me-2"></i> أداة التشخيص والفحص الشامل للاتصال
             </h5>
-            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">تشخيص فوري للمسار والشبكة والفايروول</span>
+            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">تشخيص فوري للمسار والشبكة والفايروول والمصادقة</span>
         </div>
         <div class="card-body p-4">
             <div class="row g-3">
@@ -89,6 +90,28 @@
                     <button type="button" class="btn btn-primary btn-lg rounded-pill w-100 fw-bold shadow-sm" onclick="runDiagnostic()">
                         <i class="fas fa-play me-1"></i> بدء التشخيص الآن
                     </button>
+                </div>
+            </div>
+
+            <!-- Optional Credentials for Protected Shares -->
+            <div class="mt-3">
+                <a class="btn btn-link text-decoration-none p-0 small fw-bold text-muted" data-bs-toggle="collapse" href="#diagCredsCollapse" role="button">
+                    <i class="fas fa-key me-1 text-warning"></i> بيانات اعتماد ويندوز لجهاز الفرع (اختياري - إذا كانت المشاركة محمية بكلمة مرور)
+                </a>
+                <div class="collapse mt-2" id="diagCredsCollapse">
+                    <div class="p-3 bg-light rounded-3 border">
+                        <div class="row g-2">
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">اسم مستخدم ويندوز على جهاز الفرع:</label>
+                                <input type="text" id="diagInputUsername" class="form-control form-control-sm rounded-pill px-3" placeholder="مثال: eman أو Administrator" />
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small text-muted">كلمة مرور ويندوز:</label>
+                                <input type="password" id="diagInputPassword" class="form-control form-control-sm rounded-pill px-3" placeholder="••••••••" />
+                            </div>
+                        </div>
+                        <small class="text-muted d-block mt-2">يقوم النظام بتسجيل الدخول التلقائي لجهاز الفرع قبل فتح الملف وقراءة البيانات.</small>
+                    </div>
                 </div>
             </div>
 
@@ -111,7 +134,7 @@
         <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
                 <h5 class="fw-bold text-dark mb-0"><i class="fas fa-list-check text-info me-2"></i> فروع النظام وإعدادات الربط المكتبي</h5>
-                <small class="text-muted">تحديد مسارات قواعد البيانات لكل فرع يعمل به برنامج ZKTeco</small>
+                <small class="text-muted">تحديد مسارات قواعد البيانات وبيانات الدخول لكل فرع يعمل به برنامج ZKTeco</small>
             </div>
         </div>
         <div class="card-body p-0">
@@ -124,6 +147,7 @@
                             <th>VPN IP</th>
                             <th>أجهزة البصمة</th>
                             <th>مسار ZK Access (.mdb)</th>
+                            <th>بيانات الدخول</th>
                             <th>حالة المسار</th>
                             <th class="text-center pe-4">الإجراءات</th>
                         </tr>
@@ -153,6 +177,16 @@
                                     }
                                 </td>
                                 <td>
+                                    @if (!string.IsNullOrEmpty(b.ZkUsername))
+                                    {
+                                        <span class="badge bg-light text-dark border" title="يوزر ويندوز محفوظ"><i class="fas fa-user-lock text-warning me-1"></i>@b.ZkUsername</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted small">افتراضي (بدون باسورد)</span>
+                                    }
+                                </td>
+                                <td>
                                     @if (!string.IsNullOrEmpty(b.ZkAccessDbPath))
                                     {
                                         <span class="badge bg-success-subtle text-success rounded-pill px-3 py-1">
@@ -169,17 +203,17 @@
                                 <td class="pe-4">
                                     <div class="d-flex justify-content-center gap-2">
                                         <button class="btn btn-sm btn-outline-primary rounded-pill px-3" 
-                                                onclick="openEditBranchPathModal(@b.BranchId, '@b.BranchName', '@(b.ZkAccessDbPath ?? "")')">
+                                                onclick="openEditBranchPathModal(@b.BranchId, '@b.BranchName', '@(b.ZkAccessDbPath ?? "")', '@(b.ZkUsername ?? "")')">
                                             <i class="fas fa-edit me-1"></i> ضبط المسار
                                         </button>
                                         @if (!string.IsNullOrEmpty(b.ZkAccessDbPath))
                                         {
                                             <button class="btn btn-sm btn-outline-info rounded-pill px-3" 
-                                                    onclick="testSpecificPath('@b.ZkAccessDbPath')">
+                                                    onclick="testSpecificPath('@b.ZkAccessDbPath', '@(b.ZkUsername ?? "")')">
                                                 <i class="fas fa-satellite-dish me-1"></i> فحص
                                             </button>
                                             <button class="btn btn-sm btn-outline-success rounded-pill px-3" 
-                                                    onclick="browseZkUsers('@b.ZkAccessDbPath', '@b.BranchName')">
+                                                    onclick="browseZkUsers('@b.ZkAccessDbPath', '@b.BranchName', '@(b.ZkUsername ?? "")')">
                                                 <i class="fas fa-users-viewfinder me-1"></i> استعراض الموظفين
                                             </button>
                                         }
@@ -218,6 +252,19 @@
                         اتركه فارغاً إذا كان هذا الفرع لا يمتلك كمبيوتر ببرنامج ZK ولا يحتاج ربط أكسيس.
                     </small>
                 </div>
+                <div class="p-3 bg-light rounded-3 border mb-3">
+                    <div class="fw-bold small text-dark mb-2"><i class="fas fa-shield-alt text-warning me-1"></i> بيانات الدخول لويندوز بجهاز الفرع (اختياري):</div>
+                    <div class="row g-2">
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">اسم المستخدم:</label>
+                            <input type="text" id="editBranchUsername" class="form-control form-control-sm rounded-pill px-3" placeholder="مثال: eman" />
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label small text-muted mb-1">كلمة المرور:</label>
+                            <input type="password" id="editBranchPassword" class="form-control form-control-sm rounded-pill px-3" placeholder="••••••••" />
+                        </div>
+                    </div>
+                </div>
             </div>
             <div class="modal-footer border-0 p-4 pt-0">
                 <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">إلغاء</button>
@@ -243,7 +290,7 @@
                             <option value="">-- اختر فرع --</option>
                             @foreach (var b in Model)
                             {
-                                <option value="@b.ZkAccessDbPath" data-devices="@(b.FingerDevices?.FirstOrDefault()?.Ipaddress ?? "")">@b.BranchName @(string.IsNullOrEmpty(b.ZkAccessDbPath) ? "(بدون مسار)" : "")</option>
+                                <option value="@b.ZkAccessDbPath" data-devices="@(b.FingerDevices?.FirstOrDefault()?.Ipaddress ?? "")" data-user="@(b.ZkUsername ?? "")">@b.BranchName @(string.IsNullOrEmpty(b.ZkAccessDbPath) ? "(بدون مسار)" : "")</option>
                             }
                         </select>
                     </div>
@@ -312,9 +359,13 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@@11"></script>
     <script>
         let currentBrowsePath = '';
+        let currentBrowseUser = '';
 
-        function runDiagnostic(pathOverride) {
+        function runDiagnostic(pathOverride, userOverride) {
             const path = pathOverride || $('#diagInputPath').val();
+            const username = userOverride !== undefined ? userOverride : $('#diagInputUsername').val();
+            const password = $('#diagInputPassword').val();
+
             if (!path) {
                 Swal.fire('تنبيه', 'يرجى كتابة المسار أولاً', 'warning');
                 return;
@@ -323,9 +374,9 @@
             $('#diagResultContainer').slideDown();
             $('#diagResultSummary').html('<i class="fas fa-spinner fa-spin text-primary me-2"></i> جاري فحص الاتصال بكافة المراحل...');
             $('#diagOverallBadge').removeClass('bg-success bg-danger').addClass('bg-secondary').text('جاري الفحص');
-            $('#diagStepsList').html('<div class="col-12 text-center py-4"><i class="fas fa-circle-notch fa-spin fa-2x text-primary"></i><div class="mt-2 text-muted small">فحص الشبكة والمنفذ 445 وملف الأكسيس...</div></div>');
+            $('#diagStepsList').html('<div class="col-12 text-center py-4"><i class="fas fa-circle-notch fa-spin fa-2x text-primary"></i><div class="mt-2 text-muted small">فحص الشبكة والمنفذ 445 والمصادقة وملف الأكسيس...</div></div>');
 
-            $.post('/ZkSync/Diagnose', { path: path }, function(res) {
+            $.post('/ZkSync/Diagnose', { path: path, username: username, password: password }, function(res) {
                 if (res.success) {
                     $('#diagOverallBadge').removeClass('bg-secondary bg-danger').addClass('bg-success').text('الاتصال سليم 100%');
                 } else {
@@ -364,35 +415,44 @@
             });
         }
 
-        function testSpecificPath(path) {
+        function testSpecificPath(path, user) {
             $('#diagInputPath').val(path);
+            if (user) $('#diagInputUsername').val(user);
             $('html, body').animate({ scrollTop: $('#quickDiagnosticSection').offset().top - 100 }, 500);
-            runDiagnostic(path);
+            runDiagnostic(path, user);
         }
 
-        function openEditBranchPathModal(id, name, path) {
+        function openEditBranchPathModal(id, name, path, user) {
             $('#editBranchId').val(id);
             $('#editBranchName').val(name);
             $('#editBranchPathInput').val(path);
+            $('#editBranchUsername').val(user || '');
+            $('#editBranchPassword').val('');
             new bootstrap.Modal(document.getElementById('editPathModal')).show();
         }
 
         function testModalEditPath() {
             const path = $('#editBranchPathInput').val();
+            const user = $('#editBranchUsername').val();
+            const pass = $('#editBranchPassword').val();
             if (!path) {
                 Swal.fire('تنبيه', 'يرجى إدخال مسار أولاً', 'warning');
                 return;
             }
-            testSpecificPath(path);
+            if (user) $('#diagInputUsername').val(user);
+            if (pass) $('#diagInputPassword').val(pass);
+            testSpecificPath(path, user);
             $('#editPathModal').modal('hide');
         }
 
         function saveBranchPath() {
             const id = $('#editBranchId').val();
             const path = $('#editBranchPathInput').val();
+            const user = $('#editBranchUsername').val();
+            const pass = $('#editBranchPassword').val();
 
             Swal.fire({ title: 'جاري الحفظ...', didOpen: () => Swal.showLoading() });
-            $.post('/ZkSync/SaveBranchPath', { branchId: id, path: path }, function(res) {
+            $.post('/ZkSync/SaveBranchPath', { branchId: id, path: path, username: user, password: pass }, function(res) {
                 if (res.success) {
                     Swal.fire('تم الحفظ!', res.message, 'success').then(() => location.reload());
                 } else {
@@ -431,8 +491,9 @@
             });
         });
 
-        function browseZkUsers(path, branchName) {
+        function browseZkUsers(path, branchName, user) {
             currentBrowsePath = path;
+            currentBrowseUser = user || '';
             $('#browseBranchTitle').text(branchName);
             $('#searchZkUserInput').val('');
             new bootstrap.Modal(document.getElementById('browseUsersModal')).show();
@@ -442,7 +503,7 @@
         function refreshZkUsersList() {
             const search = $('#searchZkUserInput').val();
             $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i> جاري القراءة من att2000.mdb...</td></tr>');
-            $.get('/ZkSync/GetZkUsers', { path: currentBrowsePath, search: search }, function(res) {
+            $.get('/ZkSync/GetZkUsers', { path: currentBrowsePath, search: search, username: currentBrowseUser }, function(res) {
                 if (res.success && res.users && res.users.length > 0) {
                     let rows = '';
                     res.users.forEach((u, i) => {

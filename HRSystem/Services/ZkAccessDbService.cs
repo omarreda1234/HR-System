@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data.OleDb;
+using System.Diagnostics;
 using System.IO;
 using System.Net.Sockets;
 using System.Text.RegularExpressions;
@@ -48,7 +49,38 @@ namespace HRSystem.Services
             return $@"Provider=Microsoft.Jet.OLEDB.4.0;Data Source={mdbPath};Persist Security Info=False;";
         }
 
-        public async Task<ZkDiagnosticResult> DiagnoseConnectionAsync(string rawPath)
+        public async Task<bool> AuthenticateNetworkShareAsync(string path, string? username, string? password)
+        {
+            if (string.IsNullOrWhiteSpace(username) || !path.StartsWith(@"\\")) return false;
+
+            try
+            {
+                var match = Regex.Match(path, @"^(\\\\[^\\]+\\[^\\]+)");
+                string shareRoot = match.Success ? match.Groups[1].Value : path;
+
+                var psi = new ProcessStartInfo("net", $"use \"{shareRoot}\" \"{password}\" /user:\"{username}\" /persistent:no")
+                {
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+
+                using var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    await proc.WaitForExitAsync();
+                    return proc.ExitCode == 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to authenticate network share {Path}", path);
+            }
+            return false;
+        }
+
+        public async Task<ZkDiagnosticResult> DiagnoseConnectionAsync(string rawPath, string? username = null, string? password = null)
         {
             var result = new ZkDiagnosticResult();
             if (string.IsNullOrWhiteSpace(rawPath))
@@ -60,6 +92,12 @@ namespace HRSystem.Services
 
             string cleanPath = rawPath.Trim();
             result.TargetPath = cleanPath;
+
+            // Optional Authentication if credentials passed
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                await AuthenticateNetworkShareAsync(cleanPath, username, password);
+            }
 
             // 1. Check Format (UNC vs Local)
             var stepFormat = new DiagnosticStep { Title = "فحص صيغة المسار" };
@@ -115,37 +153,64 @@ namespace HRSystem.Services
                 stepSmb.Passed = false;
                 stepSmb.Details = "منفذ مشاركة الملفات 445 مغلق أو محجوب في جدار الحماية (Windows Defender Firewall) بجهاز الفرع.";
                 stepSmb.Recommendation = "قم بفتح PowerShell كمسؤول (Run as Administrator) على جهاز الفرع ونفذ الأمر:\n" +
-                                          "netsh advfirewall firewall set rule group=\"File and Printer Sharing\" new enable=Yes";
+                                          "netsh advfirewall firewall add rule name=\"SMB_Share_445\" dir=in action=allow protocol=TCP localport=445";
             }
             result.Steps.Add(stepSmb);
 
-            // 4. Check File Existence
+            // 4. Check File Existence & Authentication
             var stepFile = new DiagnosticStep { Title = "الوصول لملف قاعدة البيانات (att2000.mdb)" };
             bool fileExists = false;
+            string? accessError = null;
+
             try
             {
-                fileExists = File.Exists(cleanPath);
+                if (File.Exists(cleanPath))
+                {
+                    fileExists = true;
+                }
+                else
+                {
+                    // Attempt directory probe to see exact error
+                    var dir = Path.GetDirectoryName(cleanPath);
+                    if (!string.IsNullOrEmpty(dir))
+                    {
+                        Directory.GetFiles(dir);
+                    }
+                }
             }
             catch (Exception ex)
             {
-                stepFile.Details = $"خطأ أمني أو في الصلاحيات أثناء فحص الملف: {ex.Message}";
+                accessError = ex.Message;
             }
 
             if (fileExists)
             {
                 stepFile.Passed = true;
                 stepFile.Details = "تم العثور على ملف قاعدة بيانات ZKTeco بنجاح وقراءته عبر مسار الشير.";
+                result.Steps.Add(stepFile);
+            }
+            else if (!string.IsNullOrEmpty(accessError) && (accessError.Contains("password", StringComparison.OrdinalIgnoreCase) || accessError.Contains("denied", StringComparison.OrdinalIgnoreCase) || accessError.Contains("logon", StringComparison.OrdinalIgnoreCase)))
+            {
+                stepFile.Passed = false;
+                stepFile.Details = "تم رفض الوصول للمجلد المشترك: جهاز الفرع يطلب اسم مستخدم وكلمة مرور لويندوز (Password-Protected Sharing) أو صلاحيات المشاركة مقيدة.";
+                stepFile.Recommendation = "الحل الموصى به (لإلغاء طلب الباسورد نهائياً من جهاز الفرع):\n" +
+                                          "1. على جهاز الفرع: افتح Control Panel -> Network and Sharing Center -> Change advanced sharing settings -> ومن أسفل All Networks اختر (Turn off password protected sharing).\n" +
+                                          "2. على مجلد ZKTeco: كليك يمين -> Properties -> Sharing -> Advanced Sharing -> Permissions -> تأكد من إضافة (Everyone) بصلاحية Full Control.\n" +
+                                          "3. أو أدخل اسم مستخدم وكلمة مرور جهاز الفرع في الخانات أدناه لتسجيل الدخول التلقائي.";
+                result.Steps.Add(stepFile);
+                result.Success = false;
+                result.Summary = "تم رفض الوصول: جهاز الفرع يطلب اسم مستخدم وكلمة مرور ويندوز.";
+                return result;
             }
             else
             {
                 stepFile.Passed = false;
-                if (string.IsNullOrEmpty(stepFile.Details))
-                {
-                    stepFile.Details = $"الملف غير موجود في المسار المحدد: {cleanPath}";
-                }
-                stepFile.Recommendation = "تأكد من اسم الشير واسم الملف (مثلاً تأكد أن مجلد ZKTeco معمول له Share باسم ZKTeco، وأن اسم الملف att2000.mdb).";
+                stepFile.Details = string.IsNullOrEmpty(accessError) 
+                    ? $"الملف غير موجود في المسار المحدد: {cleanPath}" 
+                    : $"تعذر قراءة المسار: {accessError}";
+                stepFile.Recommendation = "تأكد من اسم الشير واسم الملف (مثلاً تأكد أن مجلد ZKTeco معمول له Share باسم ZKTeco، وأن اسم الملف att2000.mdb داخل المجلد).";
+                result.Steps.Add(stepFile);
             }
-            result.Steps.Add(stepFile);
 
             // 5. Check OleDb Jet 4.0 Connection
             if (fileExists)
@@ -198,16 +263,23 @@ namespace HRSystem.Services
             }
         }
 
-        public async Task<(bool success, string message)> TestConnectionAsync(string mdbPath)
+        public async Task<(bool success, string message)> TestConnectionAsync(string mdbPath, string? username = null, string? password = null)
         {
-            var diag = await DiagnoseConnectionAsync(mdbPath);
+            var diag = await DiagnoseConnectionAsync(mdbPath, username, password);
             return (diag.Success, diag.Summary);
         }
 
-        public async Task<List<ZkUserInfoItem>> GetUsersAsync(string mdbPath, string? search = null, int limit = 50)
+        public async Task<List<ZkUserInfoItem>> GetUsersAsync(string mdbPath, string? search = null, int limit = 100, string? username = null, string? password = null)
         {
             var list = new List<ZkUserInfoItem>();
-            if (string.IsNullOrWhiteSpace(mdbPath) || !File.Exists(mdbPath)) return list;
+            if (string.IsNullOrWhiteSpace(mdbPath)) return list;
+
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                await AuthenticateNetworkShareAsync(mdbPath, username, password);
+            }
+
+            if (!File.Exists(mdbPath)) return list;
 
             try
             {
@@ -247,7 +319,9 @@ namespace HRSystem.Services
             string mdbPath, 
             string userCode, 
             string userName, 
-            string? deviceIp = null)
+            string? deviceIp = null,
+            string? username = null,
+            string? password = null)
         {
             if (string.IsNullOrWhiteSpace(mdbPath))
             {
@@ -255,6 +329,11 @@ namespace HRSystem.Services
             }
 
             mdbPath = mdbPath.Trim();
+
+            if (!string.IsNullOrWhiteSpace(username))
+            {
+                await AuthenticateNetworkShareAsync(mdbPath, username, password);
+            }
 
             if (!File.Exists(mdbPath))
             {

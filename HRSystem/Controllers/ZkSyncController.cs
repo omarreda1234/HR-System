@@ -32,14 +32,14 @@ namespace HRSystem.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Diagnose(string path)
+        public async Task<IActionResult> Diagnose(string path, string? username, string? password)
         {
             if (string.IsNullOrWhiteSpace(path))
             {
                 return Json(new { success = false, summary = "يرجى كتابة أو اختيار مسار أولاً." });
             }
 
-            var diag = await _zkAccessService.DiagnoseConnectionAsync(path);
+            var diag = await _zkAccessService.DiagnoseConnectionAsync(path, username, password);
             return Json(new
             {
                 success = diag.Success,
@@ -51,7 +51,7 @@ namespace HRSystem.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> SaveBranchPath(int branchId, string path)
+        public async Task<IActionResult> SaveBranchPath(int branchId, string path, string? username, string? password)
         {
             var branch = await _context.Branches.FindAsync(branchId);
             if (branch == null)
@@ -60,14 +60,17 @@ namespace HRSystem.Controllers
             }
 
             branch.ZkAccessDbPath = string.IsNullOrWhiteSpace(path) ? null : path.Trim();
+            if (!string.IsNullOrWhiteSpace(username)) branch.ZkUsername = username.Trim();
+            if (!string.IsNullOrWhiteSpace(password)) branch.ZkPassword = password;
+
             _context.Update(branch);
             await _context.SaveChangesAsync();
 
-            return Json(new { success = true, message = $"تم حفظ مسار ZKTeco للفرع ({branch.BranchName}) بنجاح!" });
+            return Json(new { success = true, message = $"تم حفظ إعدادات ZKTeco للفرع ({branch.BranchName}) بنجاح!" });
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddUserDirect(string path, string userCode, string userName, string? deviceIp)
+        public async Task<IActionResult> AddUserDirect(string path, string userCode, string userName, string? deviceIp, string? username, string? password)
         {
             if (string.IsNullOrWhiteSpace(path))
             {
@@ -78,19 +81,19 @@ namespace HRSystem.Controllers
                 return Json(new { success = false, message = "يرجى إدخال كود واسم الموظف." });
             }
 
-            var (success, msg) = await _zkAccessService.AddOrUpdateUserInAccessDbAsync(path, userCode.Trim(), userName.Trim(), deviceIp);
+            var (success, msg) = await _zkAccessService.AddOrUpdateUserInAccessDbAsync(path, userCode.Trim(), userName.Trim(), deviceIp, username, password);
             return Json(new { success, message = msg });
         }
 
         [HttpGet]
-        public async Task<IActionResult> GetZkUsers(string path, string? search)
+        public async Task<IActionResult> GetZkUsers(string path, string? search, string? username, string? password)
         {
             if (string.IsNullOrWhiteSpace(path))
             {
                 return Json(new { success = false, message = "المسار غير محدد." });
             }
 
-            var users = await _zkAccessService.GetUsersAsync(path, search, limit: 100);
+            var users = await _zkAccessService.GetUsersAsync(path, search, limit: 100, username: username, password: password);
             return Json(new { success = true, count = users.Count, users });
         }
     }

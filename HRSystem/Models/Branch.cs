@@ -20,6 +20,8 @@ public partial class Branch
     public string VpnIp { get; set; }
     
     public string ZkAccessDbPath { get; set; }
+    public string ZkUsername { get; set; }
+    public string ZkPassword { get; set; }
 
     public virtual ICollection<Employee> Employees { get; set; } = new List<Employee>();
 
