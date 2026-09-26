@@ -494,26 +494,39 @@
             refreshZkUsersList();
         }
 
+        $('#searchZkUserInput').on('keypress', function(e) {
+            if (e.which === 13) {
+                refreshZkUsersList();
+            }
+        });
+
         function refreshZkUsersList() {
             const search = $('#searchZkUserInput').val();
-            $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-muted"><i class="fas fa-spinner fa-spin me-2"></i> جاري القراءة من att2000.mdb...</td></tr>');
+            $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-muted"><i class="fas fa-spinner fa-spin me-2 text-info"></i> جاري قراءة بيانات الموظفين من att2000.mdb...</td></tr>');
             $.get('/ZkSync/GetZkUsers', { path: currentBrowsePath, search: search, username: currentBrowseUser }, function(res) {
                 if (res.success && res.users && res.users.length > 0) {
                     let rows = '';
                     res.users.forEach((u, i) => {
                         rows += `<tr>
                             <td>${i + 1}</td>
-                            <td><span class="badge bg-primary-subtle text-primary">${u.badgeNumber}</span></td>
-                            <td class="fw-bold">${u.name}</td>
-                            <td>${u.cardNo || '-'}</td>
+                            <td><span class="badge bg-primary-subtle text-primary fw-bold font-monospace">${u.badgeNumber}</span></td>
+                            <td class="fw-bold text-dark text-start ps-4">${u.name}</td>
+                            <td>${u.cardNo || '<span class="text-muted">-</span>'}</td>
                         </tr>`;
                     });
                     $('#zkUsersTableBody').html(rows);
+                } else if (res.success && (!res.users || res.users.length === 0)) {
+                    $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-muted"><i class="fas fa-search me-1"></i> لا يوجد موظفون مسجلون أو لم يتم العثور على نتائج.</td></tr>');
                 } else {
-                    $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-muted">لا يوجد موظفون مسجلون أو لم يتم العثور على نتائج.</td></tr>');
+                    $('#zkUsersTableBody').html(`<tr><td colspan="4" class="py-4 text-danger text-start px-4">
+                        <div class="alert alert-danger mb-0 rounded-3">
+                            <div class="fw-bold mb-1"><i class="fas fa-exclamation-triangle me-1"></i> تعذر قراءة قاعدة البيانات:</div>
+                            <div class="small">${res.message || 'فشل الاتصال بملف الأكسيس عبر الشبكة.'}</div>
+                        </div>
+                    </td></tr>`);
                 }
             }).fail(function() {
-                $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-danger">فشل قراءة الملف عبر الشبكة.</td></tr>');
+                $('#zkUsersTableBody').html('<tr><td colspan="4" class="py-4 text-danger fw-bold"><i class="fas fa-wifi me-1"></i> فشل الاتصال بالخادم.</td></tr>');
             });
         }
     </script>

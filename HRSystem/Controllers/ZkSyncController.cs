@@ -34,9 +34,10 @@ namespace HRSystem.Controllers
 
         private async Task<(string? username, string? password)> ResolveCredentialsAsync(string path, string? username, string? password)
         {
-            if (!string.IsNullOrWhiteSpace(username)) return (username, password);
+            if (!string.IsNullOrWhiteSpace(username) && !string.IsNullOrWhiteSpace(password)) 
+                return (username, password);
 
-            if (string.IsNullOrWhiteSpace(path)) return (null, null);
+            if (string.IsNullOrWhiteSpace(path)) return (username, password);
 
             var match = Regex.Match(path, @"^\\\\([^\\]+)");
             string ipOrHost = match.Success ? match.Groups[1].Value : "";
@@ -46,12 +47,14 @@ namespace HRSystem.Controllers
                 (!string.IsNullOrEmpty(ipOrHost) && b.ZkAccessDbPath != null && b.ZkAccessDbPath.Contains(ipOrHost)) ||
                 (!string.IsNullOrEmpty(ipOrHost) && b.VpnIp != null && b.VpnIp.Trim() == ipOrHost));
 
-            if (branch != null && !string.IsNullOrWhiteSpace(branch.ZkUsername))
+            if (branch != null)
             {
-                return (branch.ZkUsername, branch.ZkPassword);
+                var resolvedUser = !string.IsNullOrWhiteSpace(username) ? username : branch.ZkUsername;
+                var resolvedPass = !string.IsNullOrWhiteSpace(password) ? password : branch.ZkPassword;
+                return (resolvedUser, resolvedPass);
             }
 
-            return (null, null);
+            return (username, password);
         }
 
         [HttpPost]
@@ -122,8 +125,8 @@ namespace HRSystem.Controllers
 
             (username, password) = await ResolveCredentialsAsync(path, username, password);
 
-            var users = await _zkAccessService.GetUsersAsync(path, search, limit: 100, username: username, password: password);
-            return Json(new { success = true, count = users.Count, users });
+            var (success, msg, users) = await _zkAccessService.GetUsersWithStatusAsync(path, search, limit: 200, username: username, password: password);
+            return Json(new { success, message = msg, count = users.Count, users });
         }
     }
 }

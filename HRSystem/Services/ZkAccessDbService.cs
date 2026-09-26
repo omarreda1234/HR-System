@@ -6,8 +6,10 @@ using System.IO;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
+using System.Security.Principal;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Win32.SafeHandles;
 
 namespace HRSystem.Services
 {
@@ -59,13 +61,60 @@ namespace HRSystem.Services
         [DllImport("mpr.dll", CharSet = CharSet.Auto, SetLastError = true)]
         private static extern int WNetCancelConnection2(string lpName, int dwFlags, bool fForce);
 
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool LogonUser(
+            string lpszUsername,
+            string lpszDomain,
+            string lpszPassword,
+            int dwLogonType,
+            int dwLogonProvider,
+            out SafeAccessTokenHandle phToken);
+
+        private const int LOGON32_LOGON_NEW_CREDENTIALS = 9;
+        private const int LOGON32_PROVIDER_DEFAULT = 0;
+
         public ZkAccessDbService(ILogger<ZkAccessDbService> logger)
         {
             _logger = logger;
         }
 
-        private string BuildConnectionString(string mdbPath)
+        public async Task<T> ExecuteWithNetworkCredentialsAsync<T>(string path, string? username, string? password, Func<Task<T>> action)
         {
+            if (string.IsNullOrWhiteSpace(username) || !path.StartsWith(@"\\"))
+            {
+                return await action();
+            }
+
+            var ipMatch = Regex.Match(path, @"^\\\\([^\\]+)");
+            string domain = ipMatch.Success ? ipMatch.Groups[1].Value : "";
+            string cleanUser = username;
+            if (cleanUser.Contains('\\'))
+            {
+                var parts = cleanUser.Split('\\', 2);
+                domain = parts[0];
+                cleanUser = parts[1];
+            }
+
+            SafeAccessTokenHandle token;
+            bool ok = LogonUser(cleanUser, domain, password ?? "", LOGON32_LOGON_NEW_CREDENTIALS, LOGON32_PROVIDER_DEFAULT, out token);
+            if (!ok)
+            {
+                int err = Marshal.GetLastWin32Error();
+                _logger.LogWarning("LogonUser failed with Win32 error {Err} for {User}@{Domain}", err, cleanUser, domain);
+                await AuthenticateNetworkShareAsync(path, username, password);
+                return await action();
+            }
+
+            using (token)
+            {
+                return await WindowsIdentity.RunImpersonated(token, async () => await action());
+            }
+        }
+
+        private string BuildConnectionString(string mdbPath, bool ace = false)
+        {
+            if (ace)
+                return $@"Provider=Microsoft.ACE.OLEDB.12.0;Data Source={mdbPath};Persist Security Info=False;";
             return $@"Provider=Microsoft.Jet.OLEDB.4.0;Data Source={mdbPath};Persist Security Info=False;";
         }
 
@@ -74,14 +123,50 @@ namespace HRSystem.Services
             if (string.IsNullOrWhiteSpace(username) || !path.StartsWith(@"\\")) 
                 return (false, "لم يتم تحديد اسم المستخدم");
 
+            var ipMatch = Regex.Match(path, @"^\\\\([^\\]+)");
+            string domain = ipMatch.Success ? ipMatch.Groups[1].Value : "";
+            string cleanUser = username;
+            if (cleanUser.Contains('\\'))
+            {
+                var parts = cleanUser.Split('\\', 2);
+                domain = parts[0];
+                cleanUser = parts[1];
+            }
+
+            // 1. Try Win32 LogonUser with LOGON32_LOGON_NEW_CREDENTIALS (The ultimate service logon)
+            SafeAccessTokenHandle token;
+            bool ok = LogonUser(cleanUser, domain, password ?? "", LOGON32_LOGON_NEW_CREDENTIALS, LOGON32_PROVIDER_DEFAULT, out token);
+            if (ok)
+            {
+                using (token)
+                {
+                    bool canAccess = false;
+                    try
+                    {
+                        canAccess = WindowsIdentity.RunImpersonated(token, () =>
+                        {
+                            var matchRoot = Regex.Match(path, @"^(\\\\[^\\]+\\[^\\]+)");
+                            string root = matchRoot.Success ? matchRoot.Groups[1].Value : path;
+                            return Directory.Exists(root) || File.Exists(path);
+                        });
+                    }
+                    catch { }
+
+                    if (canAccess)
+                    {
+                        _logger.LogInformation("LogonUser authentication succeeded for {Path} with user {User}", path, username);
+                        return (true, $"تم تسجيل الدخول والتحقق من المسار بنجاح باسم ({cleanUser}).");
+                    }
+                }
+            }
+
             var match = Regex.Match(path, @"^(\\\\[^\\]+\\[^\\]+)");
             string shareRoot = match.Success ? match.Groups[1].Value : path;
-            var ipMatch = Regex.Match(path, @"^\\\\([^\\]+)");
-            string ipOrHost = ipMatch.Success ? ipMatch.Groups[1].Value : "";
+            string ipOrHost = domain;
 
             try
             {
-                // 1. Try Win32 API WNetAddConnection2
+                // 2. Try Win32 API WNetAddConnection2
                 var nr = new NETRESOURCE { lpRemoteName = shareRoot };
                 
                 // Clear any prior stale connection to prevent error 1219
@@ -301,26 +386,51 @@ namespace HRSystem.Services
                 result.Steps.Add(stepFile);
             }
 
-            // 6. Check OleDb Jet 4.0 Connection
+            // 6. Check OleDb Jet 4.0 / ACE Connection
             if (fileExists)
             {
-                var stepDb = new DiagnosticStep { Title = "قراءة بيانات ZKTeco (OLEDB Jet 4.0)" };
+                var stepDb = new DiagnosticStep { Title = "قراءة بيانات ZKTeco (OLEDB Jet 4.0 / ACE)" };
+                string? tempFile = null;
                 try
                 {
-                    using var conn = new OleDbConnection(BuildConnectionString(cleanPath));
-                    await conn.OpenAsync();
+                    string openPath = cleanPath;
+                    if (cleanPath.StartsWith(@"\\"))
+                    {
+                        tempFile = Path.Combine(Path.GetTempPath(), $"diag_{Guid.NewGuid():N}.mdb");
+                        using (var src = new FileStream(cleanPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var dst = new FileStream(tempFile, FileMode.Create, FileAccess.Write))
+                        {
+                            await src.CopyToAsync(dst);
+                        }
+                        openPath = tempFile;
+                    }
 
-                    using var cmd = conn.CreateCommand();
-                    cmd.CommandText = "SELECT COUNT(*) FROM USERINFO";
-                    var count = await cmd.ExecuteScalarAsync();
+                    OleDbConnection? conn = null;
+                    try
+                    {
+                        conn = new OleDbConnection(BuildConnectionString(openPath));
+                        await conn.OpenAsync();
+                    }
+                    catch
+                    {
+                        conn?.Dispose();
+                        conn = new OleDbConnection(BuildConnectionString(openPath, ace: true));
+                        await conn.OpenAsync();
+                    }
 
-                    stepDb.Passed = true;
-                    stepDb.Details = $"الاتصال بقاعدة بيانات ZKTeco ناجح بنسبة 100%! عدد الموظفين المسجلين حالياً: {count}";
-                    result.Steps.Add(stepDb);
+                    using (conn)
+                    {
+                        using var cmd = conn.CreateCommand();
+                        cmd.CommandText = "SELECT COUNT(*) FROM USERINFO";
+                        var count = await cmd.ExecuteScalarAsync();
 
-                    result.Success = true;
-                    result.Summary = $"تم الاتصال بنجاح بقاعدة بيانات ZKTeco! عدد الموظفين: {count}";
-                    return result;
+                        stepDb.Passed = true;
+                        stepDb.Details = $"الاتصال بقاعدة بيانات ZKTeco وقراءتها ناجح بنسبة 100%! عدد الموظفين المسجلين حالياً: {count}";
+                        result.Steps.Add(stepDb);
+
+                        result.Success = true;
+                        result.Summary = $"تم الاتصال بنجاح بقاعدة بيانات ZKTeco! عدد الموظفين المسجلين: {count}";
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -329,10 +439,40 @@ namespace HRSystem.Services
                     stepDb.Recommendation = "تأكد من عدم وجود كلمة مرور لقاعدة بيانات Access أو أن الملف غير تالف.";
                     result.Steps.Add(stepDb);
                 }
+                finally
+                {
+                    if (tempFile != null && File.Exists(tempFile))
+                    {
+                        try { File.Delete(tempFile); } catch { }
+                    }
+                }
+
+                // 7. Check Folder Write Permission
+                var stepWrite = new DiagnosticStep { Title = "صلاحية الكتابة والتعديل (Write Permission)" };
+                try
+                {
+                    string folder = Path.GetDirectoryName(cleanPath) ?? cleanPath;
+                    string testWriteFile = Path.Combine(folder, $"zk_perm_test_{Guid.NewGuid():N}.tmp");
+                    await File.WriteAllTextAsync(testWriteFile, "test");
+                    File.Delete(testWriteFile);
+                    stepWrite.Passed = true;
+                    stepWrite.Details = "صلاحية الكتابة مفعلة بالكامل! يمكنك إضافة وتعديل الموظفين مباشرة لقاعدة بيانات ZK من السيستم.";
+                }
+                catch (Exception ex)
+                {
+                    stepWrite.Passed = false;
+                    stepWrite.Details = $"صلاحية القراءة تعمل بنجاح (يمكن استعراض الموظفين)، ولكن صلاحية الكتابة مغلقة على مجلد الفرع ZKTeco.\nالسبب: {ex.Message}";
+                    stepWrite.Recommendation = "إذا كنت ترغب بإضافة موظفين من السيستم لقاعدة بيانات ZKTeco:\n" +
+                                               "1. على جهاز الفرع، كليك يمين على مجلد ZKTeco -> Properties -> تبويب Security -> أضف Everyone وفعّل Modify.\n" +
+                                               "2. من تبويب Sharing -> Advanced Sharing -> Permissions تأكد من تفعيل Change أو Full Control.";
+                }
+                result.Steps.Add(stepWrite);
             }
 
-            result.Success = false;
-            result.Summary = "فشل في أحد خطوات الاتصال (يرجى مراجعة تفاصيل التقرير أدناه).";
+            if (!result.Success)
+            {
+                result.Summary = "فشل في أحد خطوات الاتصال (يرجى مراجعة تفاصيل التقرير أدناه).";
+            }
             return result;
         }
 
@@ -358,50 +498,93 @@ namespace HRSystem.Services
             return (diag.Success, diag.Summary);
         }
 
-        public async Task<List<ZkUserInfoItem>> GetUsersAsync(string mdbPath, string? search = null, int limit = 100, string? username = null, string? password = null)
+        public async Task<(bool success, string message, List<ZkUserInfoItem> users)> GetUsersWithStatusAsync(string mdbPath, string? search = null, int limit = 100, string? username = null, string? password = null)
         {
             var list = new List<ZkUserInfoItem>();
-            if (string.IsNullOrWhiteSpace(mdbPath)) return list;
+            if (string.IsNullOrWhiteSpace(mdbPath)) 
+                return (false, "مسار قاعدة البيانات غير محدد", list);
 
-            if (!string.IsNullOrWhiteSpace(username))
+            return await ExecuteWithNetworkCredentialsAsync(mdbPath, username, password, async () =>
             {
-                await AuthenticateNetworkShareAsync(mdbPath, username, password);
-            }
-
-            if (!File.Exists(mdbPath)) return list;
-
-            try
-            {
-                using var conn = new OleDbConnection(BuildConnectionString(mdbPath));
-                await conn.OpenAsync();
-
-                using var cmd = conn.CreateCommand();
-                string query = "SELECT TOP " + limit + " USERID, Badgenumber, Name, CardNo FROM USERINFO";
-                if (!string.IsNullOrWhiteSpace(search))
+                if (!File.Exists(mdbPath))
                 {
-                    query += " WHERE Badgenumber LIKE @s OR Name LIKE @s";
-                    cmd.Parameters.AddWithValue("@s", "%" + search.Trim() + "%");
+                    return (false, $"تعذر الوصول لملف قاعدة البيانات:\n{mdbPath}", list);
                 }
-                query += " ORDER BY USERID DESC";
-                cmd.CommandText = query;
 
-                using var reader = await cmd.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
+                string? tempFile = null;
+                try
                 {
-                    list.Add(new ZkUserInfoItem
+                    string openPath = mdbPath;
+                    if (mdbPath.StartsWith(@"\\"))
                     {
-                        UserId = Convert.ToInt64(reader["USERID"]),
-                        BadgeNumber = reader["Badgenumber"]?.ToString() ?? "",
-                        Name = reader["Name"]?.ToString() ?? "",
-                        CardNo = reader["CardNo"]?.ToString()
-                    });
+                        tempFile = Path.Combine(Path.GetTempPath(), $"zk_{Guid.NewGuid():N}.mdb");
+                        using (var src = new FileStream(mdbPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var dst = new FileStream(tempFile, FileMode.Create, FileAccess.Write))
+                        {
+                            await src.CopyToAsync(dst);
+                        }
+                        openPath = tempFile;
+                    }
+
+                    OleDbConnection? conn = null;
+                    try
+                    {
+                        conn = new OleDbConnection(BuildConnectionString(openPath));
+                        await conn.OpenAsync();
+                    }
+                    catch
+                    {
+                        conn?.Dispose();
+                        conn = new OleDbConnection(BuildConnectionString(openPath, ace: true));
+                        await conn.OpenAsync();
+                    }
+
+                    using (conn)
+                    {
+                        using var cmd = conn.CreateCommand();
+                        string query = "SELECT TOP " + limit + " USERID, Badgenumber, Name, CardNo FROM USERINFO";
+                        if (!string.IsNullOrWhiteSpace(search))
+                        {
+                            query += " WHERE Badgenumber LIKE @s OR Name LIKE @s";
+                            cmd.Parameters.AddWithValue("@s", "%" + search.Trim() + "%");
+                        }
+                        query += " ORDER BY USERID DESC";
+                        cmd.CommandText = query;
+
+                        using var reader = await cmd.ExecuteReaderAsync();
+                        while (await reader.ReadAsync())
+                        {
+                            list.Add(new ZkUserInfoItem
+                            {
+                                UserId = Convert.ToInt64(reader["USERID"]),
+                                BadgeNumber = reader["Badgenumber"]?.ToString() ?? "",
+                                Name = reader["Name"]?.ToString() ?? "",
+                                CardNo = reader["CardNo"]?.ToString()
+                            });
+                        }
+                    }
+
+                    return (true, $"تم جلب {list.Count} موظف بنجاح", list);
                 }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to load users from ZK Access DB {Path}", mdbPath);
-            }
-            return list;
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to load users from ZK Access DB {Path}", mdbPath);
+                    return (false, $"خطأ أثناء قراءة قاعدة البيانات: {ex.Message}", list);
+                }
+                finally
+                {
+                    if (tempFile != null && File.Exists(tempFile))
+                    {
+                        try { File.Delete(tempFile); } catch { }
+                    }
+                }
+            });
+        }
+
+        public async Task<List<ZkUserInfoItem>> GetUsersAsync(string mdbPath, string? search = null, int limit = 100, string? username = null, string? password = null)
+        {
+            var res = await GetUsersWithStatusAsync(mdbPath, search, limit, username, password);
+            return res.users;
         }
 
         public async Task<(bool success, string message)> AddOrUpdateUserInAccessDbAsync(
@@ -419,22 +602,31 @@ namespace HRSystem.Services
 
             mdbPath = mdbPath.Trim();
 
-            if (!string.IsNullOrWhiteSpace(username))
+            return await ExecuteWithNetworkCredentialsAsync(mdbPath, username, password, async () =>
             {
-                await AuthenticateNetworkShareAsync(mdbPath, username, password);
-            }
-
-            if (!File.Exists(mdbPath))
-            {
-                return (false, $"تعذر الوصول لملف قاعدة بيانات ZKTeco بالفرع:\n{mdbPath}");
-            }
+                if (!File.Exists(mdbPath))
+                {
+                    return (false, $"تعذر الوصول لملف قاعدة بيانات ZKTeco بالفرع:\n{mdbPath}");
+                }
 
             try
             {
-                using var conn = new OleDbConnection(BuildConnectionString(mdbPath));
-                await conn.OpenAsync();
+                OleDbConnection? conn = null;
+                try
+                {
+                    conn = new OleDbConnection(BuildConnectionString(mdbPath));
+                    await conn.OpenAsync();
+                }
+                catch
+                {
+                    conn?.Dispose();
+                    conn = new OleDbConnection(BuildConnectionString(mdbPath, ace: true));
+                    await conn.OpenAsync();
+                }
 
-                // 1. Check if user already exists
+                using (conn)
+                {
+                    // 1. Check if user already exists
                 using var checkCmd = conn.CreateCommand();
                 checkCmd.CommandText = "SELECT USERID, Name FROM USERINFO WHERE Badgenumber = @badge";
                 checkCmd.Parameters.AddWithValue("@badge", userCode);
@@ -523,13 +715,24 @@ namespace HRSystem.Services
                     // Ignore if UserUpdates not present in this Access file
                 }
 
-                return (true, $"تمت إضافة وتحديث الموظف '{userName}' (كود: {userCode}) بنجاح في قاعدة بيانات برنامج ZKTeco (Access)!");
+                    return (true, $"تمت إضافة وتحديث الموظف '{userName}' (كود: {userCode}) بنجاح في قاعدة بيانات برنامج ZKTeco (Access)!");
+                }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error writing to ZKTeco Access DB at {Path}", mdbPath);
-                return (false, $"خطأ أثناء الكتابة في قاعدة بيانات ZKTeco: {ex.Message}");
+                string extra = "";
+                if (ex.Message.Contains("lock", StringComparison.OrdinalIgnoreCase) || 
+                    ex.Message.Contains("permission", StringComparison.OrdinalIgnoreCase) || 
+                    ex.Message.Contains("exclusive", StringComparison.OrdinalIgnoreCase) || 
+                    ex.Message.Contains("already in use", StringComparison.OrdinalIgnoreCase) || 
+                    ex.Message.Contains("denied", StringComparison.OrdinalIgnoreCase))
+                {
+                    extra = "\nتنبيه: تأكد من تفعيل صلاحية الكتابة (Modify / Full Control) في تبويب Security و Sharing لمجلد ZKTeco بجهاز الفرع.";
+                }
+                return (false, $"خطأ أثناء الكتابة في قاعدة بيانات ZKTeco: {ex.Message}{extra}");
             }
+            });
         }
     }
 }
